@@ -62,7 +62,6 @@ class TechnicalAnalyser:
         df['BB_Signal'] = 0
         
         for i in range(1, len(df)):
-            # Buy signal: Uptrend and price at/below lower BB
             if df.EMASignal.iloc[i] == 2 and df.CLOSE.iloc[i] <= df['BB_Lower'].iloc[i]:
                 if percent > 0:
                     df.loc[df.index[i], 'BB_Signal'] = 1
@@ -70,7 +69,6 @@ class TechnicalAnalyser:
                 else:
                     df.loc[df.index[i], 'BB_Signal'] = 1
             
-            # Sell signal: Downtrend and price at/above upper BB
             elif df.EMASignal.iloc[i] == 1 and df.CLOSE.iloc[i] >= df['BB_Upper'].iloc[i]:
                 if percent > 0:
                     df.loc[df.index[i], 'BB_Signal'] = -1
@@ -94,24 +92,20 @@ class TechnicalAnalyser:
         Returns:
             pd.DataFrame: DataFrame with Signal column added
         """
-        df['Signal'] = 0  # 0 = Hold, 1 = Buy, -1 = Sell
+        df['Signal'] = 0  
         
-        # Detect MACD crossovers
         df['MACD_Crossover'] = 0
-        df.loc[df['MACD'] > df['Signal_Line'], 'MACD_Crossover'] = 1  # Bullish
-        df.loc[df['MACD'] < df['Signal_Line'], 'MACD_Crossover'] = -1  # Bearish
+        df.loc[df['MACD'] > df['Signal_Line'], 'MACD_Crossover'] = 1 
+        df.loc[df['MACD'] < df['Signal_Line'], 'MACD_Crossover'] = -1  
         
-        # Detect crossover changes
         df['MACD_Cross_Signal'] = df['MACD_Crossover'].diff()
         
-        # Buy Signal: RSI < 30, MACD bullish crossover, Price < Lower BB
         buy_condition = (
             (df['RSI'] < 30) & 
             (df['MACD_Cross_Signal'] > 0) & 
             (df['CLOSE'] < df['BB_Lower'])
         )
         
-        # Sell Signal: RSI > 70, MACD bearish crossover, Price > Upper BB
         sell_condition = (
             (df['RSI'] > 70) & 
             (df['MACD_Cross_Signal'] < 0) & 
@@ -121,19 +115,16 @@ class TechnicalAnalyser:
         df.loc[buy_condition, 'Signal'] = 1
         df.loc[sell_condition, 'Signal'] = -1
         
-        # Clean up temporary columns
         df.drop(['MACD_Crossover', 'MACD_Cross_Signal'], axis=1, inplace=True)
         
         return df
     
-    def analyze_stock(self, symbol, period="6mo", interval="1d", plot=False, use_bb_strategy=False):
+    def analyze_stock(self, symbol, plot=False, use_bb_strategy=False):
         """
         Main function to perform complete technical analysis
         
         Args:
             symbol (str): Stock ticker symbol
-            period (str): Data period
-            interval (str): Data interval
             plot (bool): Whether to plot the results
             use_bb_strategy (bool): Use BB+EMA strategy instead of RSI+MACD+BB
         
@@ -145,41 +136,32 @@ class TechnicalAnalyser:
         report += f"Technical Analysis for {symbol.upper()}\n"
         report += f"{'='*60}\n\n"
         
-        # Fetch data
         data = DataFetcher(symbol)
         df = data.get_data()
         
-        # Calculate indicators
         report += "Calculating technical indicators...\n"
         
-        # Calculate RSI using pandas_ta
         df['RSI'] = ta.rsi(df.CLOSE, length=2 if use_bb_strategy else 14)
         
-        # Calculate EMA/SMA
         df['EMA'] = ta.sma(df.CLOSE, length=200)
         
-        # Calculate Bollinger Bands using pandas_ta
         my_bbands = ta.bbands(df.CLOSE, length=20, std=2.5)
         df = df.join(my_bbands)
         
-        # Rename columns to match your existing structure
         if 'BBL_20_2.5' in df.columns:
             df['BB_Lower'] = df['BBL_20_2.5']
             df['BB_Middle'] = df['BBM_20_2.5']
             df['BB_Upper'] = df['BBU_20_2.5']
         
-        # Calculate MACD if not using BB strategy
         if not use_bb_strategy:
             macd, signal_line, macd_hist = ic.calculate_macd(df)
             df['MACD'] = macd
             df['Signal_Line'] = signal_line
             df['MACD_Hist'] = macd_hist
         
-        # Drop NaN values
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)
         
-        # Generate signals based on strategy
         if use_bb_strategy:
             report += "Using Bollinger Band + EMA Strategy...\n"
             df = self.add_ema_signal(df, backcandles=6)
@@ -190,7 +172,6 @@ class TechnicalAnalyser:
             df = self.signal_generator(df)
             signal_col = 'Signal'
         
-        # Display summary statistics
         report += f"\n{'='*60}\n"
         report += "Analysis Summary\n"
         report += f"{'='*60}\n"
@@ -208,82 +189,75 @@ class TechnicalAnalyser:
         report += f"Total Sell Signals: {sell_signals}\n"
         report += f"{'='*60}\n\n"
         
-        # Plot if requested
         if plot:
             self.plot_analysis(df, symbol, use_bb_strategy)
         
         return df, report
     
-    def plot_analysis(self, df, symbol, use_bb_strategy=False):
-        """
-        Create visualization of price, Bollinger Bands, and signals
+    # def plot_analysis(self, df, symbol, use_bb_strategy=False):
+    #     """
+    #     Create visualization of price, Bollinger Bands, and signals
+    #     """
+    #     signal_col = 'BB_Signal' if use_bb_strategy else 'Signal'
         
-        Args:
-            df (pd.DataFrame): DataFrame with analysis results
-            symbol (str): Stock ticker symbol
-            use_bb_strategy (bool): Whether BB strategy was used
-        """
-        signal_col = 'BB_Signal' if use_bb_strategy else 'Signal'
+    #     fig, axes = plt.subplots(3 if not use_bb_strategy else 2, 1, 
+    #                              figsize=(14, 10), sharex=True)
+    #     fig.suptitle(f'{symbol.upper()} - Technical Analysis', fontsize=16, fontweight='bold')
         
-        fig, axes = plt.subplots(3 if not use_bb_strategy else 2, 1, 
-                                 figsize=(14, 10), sharex=True)
-        fig.suptitle(f'{symbol.upper()} - Technical Analysis', fontsize=16, fontweight='bold')
+    #     ax1 = axes[0]
+    #     ax2 = axes[1]
+    #     if not use_bb_strategy:
+    #         ax3 = axes[2]
         
-        ax1 = axes[0]
-        ax2 = axes[1]
-        if not use_bb_strategy:
-            ax3 = axes[2]
+    #     ax1.plot(df.index, df['CLOSE'], label='Close Price', color='black', linewidth=1.5)
+    #     ax1.plot(df.index, df['BB_Upper'], label='Upper BB', color='red', linestyle='--', alpha=0.7)
+    #     ax1.plot(df.index, df['BB_Middle'], label='Middle BB', color='blue', linestyle='--', alpha=0.7)
+    #     ax1.plot(df.index, df['BB_Lower'], label='Lower BB', color='green', linestyle='--', alpha=0.7)
+    #     ax1.fill_between(df.index, df['BB_Upper'], df['BB_Lower'], alpha=0.1, color='gray')
         
-        # Plot 1: Price and Bollinger Bands
-        ax1.plot(df.index, df['CLOSE'], label='Close Price', color='black', linewidth=1.5)
-        ax1.plot(df.index, df['BB_Upper'], label='Upper BB', color='red', linestyle='--', alpha=0.7)
-        ax1.plot(df.index, df['BB_Middle'], label='Middle BB', color='blue', linestyle='--', alpha=0.7)
-        ax1.plot(df.index, df['BB_Lower'], label='Lower BB', color='green', linestyle='--', alpha=0.7)
-        ax1.fill_between(df.index, df['BB_Upper'], df['BB_Lower'], alpha=0.1, color='gray')
+    #     if use_bb_strategy and 'EMA' in df.columns:
+    #         ax1.plot(df.index, df['EMA'], label='EMA 200', color='orange', linestyle='-', alpha=0.7)
         
-        if use_bb_strategy and 'EMA' in df.columns:
-            ax1.plot(df.index, df['EMA'], label='EMA 200', color='orange', linestyle='-', alpha=0.7)
+    #     # Mark buy/sell signals
+    #     buy_signals = df[df[signal_col] == 1]
+    #     sell_signals = df[df[signal_col] == -1]
         
-        # Mark buy/sell signals
-        buy_signals = df[df[signal_col] == 1]
-        sell_signals = df[df[signal_col] == -1]
+    #     ax1.scatter(buy_signals.index, buy_signals['CLOSE'], 
+    #                 marker='^', color='green', s=100, label='Buy Signal', zorder=5)
+    #     ax1.scatter(sell_signals.index, sell_signals['CLOSE'], 
+    #                 marker='v', color='red', s=100, label='Sell Signal', zorder=5)
         
-        ax1.scatter(buy_signals.index, buy_signals['CLOSE'], 
-                    marker='^', color='green', s=100, label='Buy Signal', zorder=5)
-        ax1.scatter(sell_signals.index, sell_signals['CLOSE'], 
-                    marker='v', color='red', s=100, label='Sell Signal', zorder=5)
+    #     ax1.set_ylabel('Price ($)', fontweight='bold')
+    #     ax1.legend(loc='best')
+    #     ax1.grid(True, alpha=0.3)
         
-        ax1.set_ylabel('Price ($)', fontweight='bold')
-        ax1.legend(loc='best')
-        ax1.grid(True, alpha=0.3)
+    #     # Plot 2: RSI
+    #     ax2.plot(df.index, df['RSI'], label='RSI', color='purple', linewidth=1.5)
+    #     ax2.axhline(y=70, color='r', linestyle='--', alpha=0.5, label='Overbought (70)')
+    #     ax2.axhline(y=30, color='g', linestyle='--', alpha=0.5, label='Oversold (30)')
+    #     ax2.axhline(y=50, color='b', linestyle='--', alpha=0.5, label='Neutral (50)')
+    #     ax2.fill_between(df.index, 70, 100, alpha=0.1, color='red')
+    #     ax2.fill_between(df.index, 0, 30, alpha=0.1, color='green')
+    #     ax2.set_ylabel('RSI', fontweight='bold')
+    #     ax2.set_ylim(0, 100)
+    #     ax2.legend(loc='best')
+    #     ax2.grid(True, alpha=0.3)
         
-        # Plot 2: RSI
-        ax2.plot(df.index, df['RSI'], label='RSI', color='purple', linewidth=1.5)
-        ax2.axhline(y=70, color='r', linestyle='--', alpha=0.5, label='Overbought (70)')
-        ax2.axhline(y=30, color='g', linestyle='--', alpha=0.5, label='Oversold (30)')
-        ax2.axhline(y=50, color='b', linestyle='--', alpha=0.5, label='Neutral (50)')
-        ax2.fill_between(df.index, 70, 100, alpha=0.1, color='red')
-        ax2.fill_between(df.index, 0, 30, alpha=0.1, color='green')
-        ax2.set_ylabel('RSI', fontweight='bold')
-        ax2.set_ylim(0, 100)
-        ax2.legend(loc='best')
-        ax2.grid(True, alpha=0.3)
+    #     # Plot 3: MACD (only for original strategy)
+    #     if not use_bb_strategy:
+    #         ax3.plot(df.index, df['MACD'], label='MACD', color='blue', linewidth=1.5)
+    #         ax3.plot(df.index, df['Signal_Line'], label='Signal Line', color='red', linewidth=1.5)
+    #         ax3.bar(df.index, df['MACD_Hist'], label='MACD Histogram', color='gray', alpha=0.3)
+    #         ax3.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+    #         ax3.set_ylabel('MACD', fontweight='bold')
+    #         ax3.set_xlabel('Date', fontweight='bold')
+    #         ax3.legend(loc='best')
+    #         ax3.grid(True, alpha=0.3)
+    #     else:
+    #         ax2.set_xlabel('Date', fontweight='bold')
         
-        # Plot 3: MACD (only for original strategy)
-        if not use_bb_strategy:
-            ax3.plot(df.index, df['MACD'], label='MACD', color='blue', linewidth=1.5)
-            ax3.plot(df.index, df['Signal_Line'], label='Signal Line', color='red', linewidth=1.5)
-            ax3.bar(df.index, df['MACD_Hist'], label='MACD Histogram', color='gray', alpha=0.3)
-            ax3.axhline(y=0, color='black', linestyle='-', alpha=0.3)
-            ax3.set_ylabel('MACD', fontweight='bold')
-            ax3.set_xlabel('Date', fontweight='bold')
-            ax3.legend(loc='best')
-            ax3.grid(True, alpha=0.3)
-        else:
-            ax2.set_xlabel('Date', fontweight='bold')
-        
-        plt.tight_layout()
-        plt.show()
+    #     plt.tight_layout()
+    #     plt.show()
 
 
 # Example usage:
