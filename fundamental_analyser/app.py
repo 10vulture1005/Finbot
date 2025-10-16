@@ -4,7 +4,8 @@ import pandas as pd
 from dotenv import load_dotenv
 load_dotenv()
 
-URL = "https://www.screener.in/company/JKPAPER/consolidated/"
+symbol = "JKPAPER"
+URL = f"https://www.screener.in/company/{symbol}/consolidated/"
 
 headers = {
     "User-Agent": "Mozilla/5.0 (compatible; your-bot/0.1; +https://yourexample.com)"
