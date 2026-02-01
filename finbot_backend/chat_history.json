@@ -1,0 +1,100 @@
+{
+  "test-thread-101": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "My lucky number is 777"
+    },
+    {
+      "role": "assistant",
+      "content": "<content thesys=\"true\">{\n  &quot;component&quot;: {\n    &quot;component&quot;: &quot;Card&quot;,\n    &quot;props&quot;: {\n      &quot;children&quot;: [\n        {\n          &quot;component&quot;: &quot;CardHeader&quot;,\n          &quot;props&quot;: {\n            &quot;title&quot;: &quot;Your Lucky Number&quot;,\n            &quot;subtitle&quot;: &quot;That&#39;s a special one!&quot;\n          }\n        },\n        {\n          &quot;component&quot;: &quot;TextContent&quot;,\n          &quot;props&quot;: {\n            &quot;textMarkdown&quot;: &quot;**777** is indeed a fascinating number! It&#39;s considered very lucky in many cultures and has some interesting properties:\\n\\n\ud83c\udf40 **Cultural Significance:**\\n- Often called the \\&quot;jackpot number\\&quot; in gambling\\n- Represents spiritual perfection in many traditions\\n- Triple repetition amplifies the power of 7\\n\\n\u2728 **Mathematical Fun Facts:**\\n- 777 = 3 \u00d7 7 \u00d7 37\\n- It&#39;s a palindromic number\\n- Sum of its digits: 7 + 7 + 7 = 21 (which is also 3 \u00d7 7!)\\n\\n\ud83c\udfb0 **Why 777 is Special:**\\n- Triple sevens are the ultimate slot machine combination\\n- Seven is considered lucky in many world cultures\\n- It appears in religious texts, folklore, and superstitions\\n\\nYour lucky number choice shows great taste - 777 combines the mystical power of 7 with the amplifying effect of repetition!&quot;\n          }\n        }\n      ]\n    }\n  },\n  &quot;error&quot;: null\n}</content>"
+    }
+  ],
+  "6e023763-9761-47f4-82a9-06d7f6d7d763": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "<content thesys=\"true\">hello</content>"
+    },
+    {
+      "role": "assistant",
+      "content": "<content thesys=\"true\">{\n  &quot;component&quot;: {\n    &quot;component&quot;: &quot;Card&quot;,\n    &quot;props&quot;: {\n      &quot;children&quot;: [\n        {\n          &quot;component&quot;: &quot;CardHeader&quot;,\n          &quot;props&quot;: {\n            &quot;title&quot;: &quot;Hello!&quot;,\n            &quot;subtitle&quot;: &quot;Welcome to our assistant&quot;\n          }\n        },\n        {\n          &quot;component&quot;: &quot;TextContent&quot;,\n          &quot;props&quot;: {\n            &quot;textMarkdown&quot;: &quot;Hello! \ud83d\udc4b I&#39;m here to help you with whatever you need. I can assist you with a wide variety of tasks including:\\n\\n- Answering questions and providing information\\n- Helping with analysis and problem-solving\\n- Creating content and explanations\\n- Providing guidance and recommendations\\n\\nWhat would you like to know or discuss today?&quot;\n          }\n        }\n      ]\n    }\n  },\n  &quot;error&quot;: null\n}</content>"
+    }
+  ],
+  "test-header-thread-1": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "Testing headers"
+    },
+    {
+      "role": "assistant",
+      "content": "<content thesys=\"true\">{\n  &quot;component&quot;: {\n    &quot;component&quot;: &quot;Card&quot;,\n    &quot;props&quot;: {\n      &quot;children&quot;: [\n        {\n          &quot;component&quot;: &quot;CardHeader&quot;,\n          &quot;props&quot;: {\n            &quot;title&quot;: &quot;Header Testing&quot;,\n            &quot;subtitle&quot;: &quot;Demonstrating different header configurations&quot;\n          }\n        },\n        {\n          &quot;component&quot;: &quot;TextContent&quot;,\n          &quot;props&quot;: {\n            &quot;textMarkdown&quot;: &quot;## Different Header Examples\\n\\nHere are various ways to implement headers in your UI:\\n\\n### Basic Header\\n- Simple title with optional subtitle\\n- Clean and straightforward presentation\\n\\n### Header with Actions\\n- Includes action buttons for user interaction\\n- Commonly used for editable content sections\\n\\n### Header Variants\\n- Can be styled with different visual treatments\\n- Supports icons and additional metadata\\n\\n**Note:** Headers help organize content and provide clear section boundaries in your interface.&quot;\n          }\n        },\n        {\n          &quot;component&quot;: &quot;Accordion&quot;,\n          &quot;props&quot;: {\n            &quot;children&quot;: [\n              {\n                &quot;value&quot;: &quot;basic&quot;,\n                &quot;variant&quot;: &quot;card&quot;,\n                &quot;trigger&quot;: {\n                  &quot;text&quot;: &quot;Basic Header Example&quot;\n                },\n                &quot;content&quot;: [\n                  {\n                    &quot;component&quot;: &quot;CardHeader&quot;,\n                    &quot;props&quot;: {\n                      &quot;title&quot;: &quot;Simple Header&quot;,\n                      &quot;subtitle&quot;: &quot;This is a basic header with title and subtitle&quot;\n                    }\n                  },\n                  {\n                    &quot;component&quot;: &quot;TextContent&quot;,\n                    &quot;props&quot;: {\n                      &quot;textMarkdown&quot;: &quot;This demonstrates a clean, minimal header approach perfect for most content sections.&quot;\n                    }\n                  }\n                ]\n              },\n              {\n                &quot;value&quot;: &quot;actions&quot;,\n                &quot;variant&quot;: &quot;card&quot;,\n                &quot;trigger&quot;: {\n                  &quot;text&quot;: &quot;Header with Actions&quot;\n                },\n                &quot;content&quot;: [\n                  {\n                    &quot;component&quot;: &quot;CardHeader&quot;,\n                    &quot;props&quot;: {\n                      &quot;title&quot;: &quot;Interactive Header&quot;,\n                      &quot;subtitle&quot;: &quot;Header with action buttons&quot;,\n                      &quot;actions&quot;: [\n                        {\n                          &quot;component&quot;: &quot;Button&quot;,\n                          &quot;props&quot;: {\n                            &quot;children&quot;: &quot;Edit&quot;,\n                            &quot;name&quot;: &quot;edit_header&quot;,\n                            &quot;variant&quot;: &quot;secondary&quot;,\n                            &quot;size&quot;: &quot;small&quot;\n                          }\n                        }\n                      ]\n                    }\n                  },\n                  {\n                    &quot;component&quot;: &quot;TextContent&quot;,\n                    &quot;props&quot;: {\n                      &quot;textMarkdown&quot;: &quot;This header includes action buttons that users can interact with, perfect for editable content areas.&quot;\n                    }\n                  }\n                ]\n              }\n            ]\n          }\n        }\n      ]\n    }\n  },\n  &quot;error&quot;: null\n}</content>"
+    }
+  ],
+  "3e9c8308-e756-4043-b584-9f119d3322c4": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "<content thesys=\"true\">hry</content>"
+    },
+    {
+      "role": "assistant",
+      "content": "<content thesys=\"true\">{\n  &quot;component&quot;: {\n    &quot;component&quot;: &quot;Card&quot;,\n    &quot;props&quot;: {\n      &quot;children&quot;: [\n        {\n          &quot;component&quot;: &quot;CardHeader&quot;,\n          &quot;props&quot;: {\n            &quot;title&quot;: &quot;Hello!&quot;,\n            &quot;subtitle&quot;: &quot;How can I help you today?&quot;\n          }\n        },\n        {\n          &quot;component&quot;: &quot;TextContent&quot;,\n          &quot;props&quot;: {\n            &quot;textMarkdown&quot;: &quot;Hi there! I&#39;m here to assist you with whatever you need. Feel free to ask me questions, request information, or let me know what you&#39;d like to explore together.&quot;\n          }\n        }\n      ]\n    }\n  },\n  &quot;error&quot;: null\n}</content>"
+    }
+  ],
+  "bb2f34f7-a065-423d-837a-8c9d59d9b6d5": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "<content thesys=\"true\">hey</content>"
+    },
+    {
+      "role": "assistant",
+      "content": "<content thesys=\"true\">{\n  &quot;component&quot;: {\n    &quot;component&quot;: &quot;Card&quot;,\n    &quot;props&quot;: {\n      &quot;children&quot;: [\n        {\n          &quot;component&quot;: &quot;CardHeader&quot;,\n          &quot;props&quot;: {\n            &quot;title&quot;: &quot;Hello!&quot;,\n            &quot;subtitle&quot;: &quot;How can I help you today?&quot;\n          }\n        },\n        {\n          &quot;component&quot;: &quot;TextContent&quot;,\n          &quot;props&quot;: {\n            &quot;textMarkdown&quot;: &quot;Hi there! \ud83d\udc4b I&#39;m here to help you with whatever you need. Feel free to ask me questions, request information, or let me know what you&#39;d like to explore today!&quot;\n          }\n        }\n      ]\n    }\n  },\n  &quot;error&quot;: null\n}</content>"
+    }
+  ],
+  "da36a05a-6c79-4dca-807a-d11ab4bad23e": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "<content thesys=\"true\">hey</content>"
+    },
+    {
+      "role": "assistant",
+      "content": "<content thesys=\"true\">{\n  &quot;component&quot;: {\n    &quot;component&quot;: &quot;Card&quot;,\n    &quot;props&quot;: {\n      &quot;children&quot;: [\n        {\n          &quot;component&quot;: &quot;CardHeader&quot;,\n          &quot;props&quot;: {\n            &quot;title&quot;: &quot;Hello!&quot;,\n            &quot;subtitle&quot;: &quot;How can I help you today?&quot;\n          }\n        },\n        {\n          &quot;component&quot;: &quot;TextContent&quot;,\n          &quot;props&quot;: {\n            &quot;textMarkdown&quot;: &quot;Hi there! \ud83d\udc4b I&#39;m here to help you with any questions or tasks you might have. Feel free to ask me anything - I can assist with information, explanations, problem-solving, creative tasks, and much more.\\n\\nWhat would you like to explore today?&quot;\n          }\n        }\n      ]\n    }\n  },\n  &quot;error&quot;: null\n}</content>"
+    }
+  ],
+  "76c32375-46f4-4521-aa8d-a5c3ad6fa44a": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "<content thesys=\"true\">give me fundamentals graph of gold</content>"
+    },
+    {
+      "role": "assistant",
+      "content": "<content thesys=\"true\">{\n  &quot;component&quot;: {\n    &quot;component&quot;: &quot;Card&quot;,\n    &quot;props&quot;: {\n      &quot;children&quot;: [\n        {\n          &quot;component&quot;: &quot;CardHeader&quot;,\n          &quot;props&quot;: {\n            &quot;title&quot;: &quot;Gold Fundamentals Analysis&quot;,\n            &quot;subtitle&quot;: &quot;Key market indicators and price drivers&quot;\n          }\n        },\n        {\n          &quot;component&quot;: &quot;Tabs&quot;,\n          &quot;props&quot;: {\n            &quot;children&quot;: [\n              {\n                &quot;value&quot;: &quot;price&quot;,\n                &quot;trigger&quot;: {\n                  &quot;text&quot;: &quot;Price Trend&quot;\n                },\n                &quot;content&quot;: [\n                  {\n                    &quot;component&quot;: &quot;LineChart&quot;,\n                    &quot;props&quot;: {\n                      &quot;categoryKey&quot;: &quot;month&quot;,\n                      &quot;data&quot;: [\n                        {&quot;month&quot;: &quot;Jan&quot;, &quot;price&quot;: 1820},\n                        {&quot;month&quot;: &quot;Feb&quot;, &quot;price&quot;: 1835},\n                        {&quot;month&quot;: &quot;Mar&quot;, &quot;price&quot;: 1950},\n                        {&quot;month&quot;: &quot;Apr&quot;, &quot;price&quot;: 1980},\n                        {&quot;month&quot;: &quot;May&quot;, &quot;price&quot;: 2020},\n                        {&quot;month&quot;: &quot;Jun&quot;, &quot;price&quot;: 2340}\n                      ]\n                    }\n                  }\n                ]\n              },\n              {\n                &quot;value&quot;: &quot;supply&quot;,\n                &quot;trigger&quot;: {\n                  &quot;text&quot;: &quot;Supply &amp; Demand&quot;\n                },\n                &quot;content&quot;: [\n                  {\n                    &quot;component&quot;: &quot;BarChart&quot;,\n                    &quot;props&quot;: {\n                      &quot;categoryKey&quot;: &quot;category&quot;,\n                      &quot;data&quot;: [\n                        {&quot;category&quot;: &quot;Mining&quot;, &quot;supply&quot;: 3200, &quot;demand&quot;: 0},\n                        {&quot;category&quot;: &quot;Recycling&quot;, &quot;supply&quot;: 1200, &quot;demand&quot;: 0},\n                        {&quot;category&quot;: &quot;Jewelry&quot;, &quot;supply&quot;: 0, &quot;demand&quot;: 2100},\n                        {&quot;category&quot;: &quot;Investment&quot;, &quot;supply&quot;: 0, &quot;demand&quot;: 1800},\n                        {&quot;category&quot;: &quot;Technology&quot;, &quot;supply&quot;: 0, &quot;demand&quot;: 320}\n                      ]\n                    }\n                  }\n                ]\n              },\n              {\n                &quot;value&quot;: &quot;indicators&quot;,\n                &quot;trigger&quot;: {\n                  &quot;text&quot;: &quot;Key Indicators&quot;\n                },\n                &quot;content&quot;: [\n                  {\n                    &quot;component&quot;: &quot;TextContent&quot;,\n                    &quot;props&quot;: {\n                      &quot;textMarkdown&quot;: &quot;## Market Fundamentals\\n\\n**Bullish Factors:**\\n- Central bank gold purchases at 55-year highs\\n- Dollar weakening trend\\n- Inflation hedge demand increasing\\n- Geopolitical tensions supporting safe-haven flows\\n\\n**Bearish Factors:**\\n- Rising interest rates reducing appeal\\n- Strong equity markets competing for investment\\n- ETF outflows in developed markets\\n\\n**Technical Levels:**\\n- Support: $2,300\\n- Resistance: $2,400\\n- Target: $2,500&quot;\n                    }\n                  }\n                ]\n              }\n            ]\n          }\n        }\n      ]\n    }\n  },\n  &quot;error&quot;: null\n}</content>"
+    }
+  ]
+}
