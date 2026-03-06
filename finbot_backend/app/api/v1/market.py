@@ -30,106 +30,111 @@ def load_data():
 # Load data on import
 load_data()
 
-@router.get("/search")
+from app.schemas.response import APIResponse
+
+@router.get("/search", response_model=APIResponse[list[dict]])
 def search_stocks(q: str = Query(..., min_length=1)):
-    global df_stocks
-    if df_stocks is None or df_stocks.empty:
-        return []
-    
-    query = q.lower()
-    
-    # 1. Exact Substring Matches (High Priority)
-    mask = (
-        df_stocks['SYMBOL'].str.lower().str.contains(query, na=False) | 
-        df_stocks['NAME OF COMPANY'].str.lower().str.contains(query, na=False)
-    )
-    exact_matches = df_stocks[mask].head(10)
-    
-    results = []
-    seen_symbols = set()
-
-    # Add exact matches first
-    for _, row in exact_matches.iterrows():
-        results.append({
-            "symbol": row['SYMBOL'],
-            "name": row['NAME OF COMPANY'],
-            "exchange": "NSE"
-        })
-        seen_symbols.add(row['SYMBOL'])
-        
-    # 2. Fuzzy Matches (If we have space)
-    if len(results) < 10 and len(query) > 2:
-        import difflib
-        
-        # Get all symbols and names as lists for fuzzy matching
-        all_symbols = df_stocks['SYMBOL'].dropna().astype(str).tolist()
-        # all_names = df_stocks['NAME OF COMPANY'].dropna().astype(str).tolist() # Too slow for full fuzzy on names
-        
-        # Fuzzy match on Symbol
-        close_symbols = difflib.get_close_matches(query.upper(), all_symbols, n=5, cutoff=0.6)
-        
-        for sym in close_symbols:
-            if sym not in seen_symbols:
-                # Find the row for this symbol
-                row = df_stocks[df_stocks['SYMBOL'] == sym].iloc[0]
-                results.append({
-                    "symbol": row['SYMBOL'],
-                    "name": row['NAME OF COMPANY'],
-                    "exchange": "NSE"
-                })
-                seen_symbols.add(sym)
-                if len(results) >= 10:
-                    break
-                    
-    return results[:10]
-
-@router.get("/quote/{symbol}")
-def get_quote(symbol: str):
-    import requests
-    
-    # Check for access token in env (optional)
-    access_token = os.getenv("GROWW_ACCESS_TOKEN")
-
-    url = "https://api.groww.in/v1/live-data/quote"
-    params = {
-        "exchange": "NSE",
-        "segment": "CASH",
-        "trading_symbol": symbol.upper()
-    }
-    headers = {
-        "Accept": "application/json",
-        "X-API-VERSION": "1.0"
-    }
-    if access_token:
-        headers["Authorization"] = f"Bearer {access_token}"
-
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=5)
-        response.raise_for_status()
-        data = response.json()
+        import yfinance as yf
+        # yfinance doesn't have a direct search API that is reliable without unofficial libs.
+        # But we can use the Yahoo Finance autocomplete API directly or just rely on the local CSV if it was better.
+        # Given the "REAL data" requirement, we'll try to use the CSV for *searching* symbols (as a directory)
+        # and yfinance for *validating/fetching* data.
+        # Re-using the local CSV for search is faster and safer for "search" than hitting an external API 
+        # that might block us.
         
-        # Extract relevant fields
-        # Structure varies, assume:
-        # { "ltp": 123.45, "dayChange": 1.2, "dayChangePerc": 0.5, ... }
-        # Need to verify structure from user prompt or assumption.
-        # User output didn't show response structure, only request.
-        # Standard Groww response usually has 'ltp', 'close', etc.
+        global df_stocks
+        if df_stocks is None or df_stocks.empty:
+             # Fallback to a simple list if CSV missing, or return empty
+             return APIResponse(success=True, data=[])
+
+        query = q.lower()
+        mask = (
+            df_stocks['SYMBOL'].str.lower().str.contains(query, na=False) | 
+            df_stocks['NAME OF COMPANY'].str.lower().str.contains(query, na=False)
+        )
+        # 1. Exact/Substring Matches
+        results_df = df_stocks[mask].head(10)
         
-        return {
-            "symbol": symbol.upper(),
-            "price": data.get('ltp', 0),
-            "change": data.get('dayChange', 0),
-            "changePercent": data.get('dayChangePerc', 0),
-            "low": data.get('low', 0),
-            "high": data.get('high', 0)
-        }
+        output = []
+        seen_symbols = set()
+        
+        for _, row in results_df.iterrows():
+            output.append({
+                "symbol": str(row['SYMBOL']) + ".NS",
+                "name": row['NAME OF COMPANY'],
+                "exchange": "NSE"
+            })
+            seen_symbols.add(row['SYMBOL'])
+
+        # 2. Fuzzy Matches (If we have space)
+        if len(output) < 10 and len(query) > 1:
+            import difflib
+            
+            # Get all symbols for fuzzy matching
+            all_symbols = df_stocks['SYMBOL'].dropna().astype(str).tolist()
+            
+            # Fuzzy match on Symbol
+            close_symbols = difflib.get_close_matches(query.upper(), all_symbols, n=5, cutoff=0.6)
+            
+            for sym in close_symbols:
+                if sym not in seen_symbols:
+                    # Find the row for this symbol
+                    match_rows = df_stocks[df_stocks['SYMBOL'] == sym]
+                    if not match_rows.empty:
+                        row = match_rows.iloc[0]
+                        output.append({
+                            "symbol": str(row['SYMBOL']) + ".NS",
+                            "name": row['NAME OF COMPANY'],
+                            "exchange": "NSE"
+                        })
+                        seen_symbols.add(sym)
+                    if len(output) >= 10:
+                        break
+        
+        return APIResponse(success=True, data=output)
+
     except Exception as e:
-        print(f"Error fetching quote for {symbol}: {e}")
-        # Return fallback/error structure
-        return {
+        print(f"Search error: {e}")
+        return APIResponse(success=False, error=str(e), data=[])
+
+@router.get("/quote/{symbol}", response_model=APIResponse[dict])
+def get_quote(symbol: str):
+    import yfinance as yf
+    try:
+        # Append .NS if not present and if it looks like an Indian stock (simple heuristic or force it)
+        # The user's CSV seems to be NSE data ("EQUITY_L.csv" is common NSE filename).
+        ticker_symbol = symbol
+        if not ticker_symbol.endswith(".NS") and not ticker_symbol.endswith(".BO"):
+            ticker_symbol = f"{symbol}.NS"
+        
+        ticker = yf.Ticker(ticker_symbol)
+        # fast_info is faster than info
+        info = ticker.fast_info
+        
+        # fast_info provides: last_price, previous_close, day_high, day_low, etc.
+        price = info.last_price
+        prev_close = info.previous_close
+        
+        change = price - prev_close
+        change_percent = (change / prev_close) * 100 if prev_close else 0
+        
+        return APIResponse(success=True, data={
+            "symbol": symbol.upper(),
+            "price": price,
+            "change": change,
+            "changePercent": change_percent,
+            "low": info.day_low,
+            "high": info.day_high,
+            "name": ticker_symbol # valid yfinance ticker
+        })
+
+    except Exception as e:
+        print(f"Quote error for {symbol}: {e}")
+        return APIResponse(success=False, error=str(e), data={
             "symbol": symbol.upper(),
             "price": 0,
             "change": 0,
             "changePercent": 0,
             "error": str(e)
-        }
+        })

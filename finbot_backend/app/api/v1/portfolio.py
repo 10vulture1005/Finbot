@@ -2,66 +2,90 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.db.session import get_db
-from app.schemas.portfolio import *
-from app.services.portfolio_service import *
+from app.schemas.portfolio import PortfolioResponse, PortfolioCreate, PortfolioUpdate, PortfolioHistoryResponse
+from app.services.portfolio_service import get_portfolio, add_stock, update_stock, delete_stock, delete_all_stocks, get_portfolio_history
 
 router = APIRouter(prefix="/portfolio", tags=["Portfolio"])
 
-@router.get("/", response_model=list[PortfolioResponse])
+from app.schemas.response import APIResponse
+
+@router.get("", response_model=APIResponse[list[PortfolioResponse]])
 def my_portfolio(
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-    return get_portfolio(db, user.id)
+    data = get_portfolio(db, user.id)
+    return APIResponse(success=True, data=data)
 
-@router.post("/", response_model=PortfolioResponse)
+@router.get("/history", response_model=APIResponse[list[PortfolioHistoryResponse]])
+def portfolio_history(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    data = get_portfolio_history(db, user.id)
+    return APIResponse(success=True, data=data)
+
+
+
+@router.post("", response_model=APIResponse[PortfolioResponse])
 def add_to_portfolio(
     payload: PortfolioCreate,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-    return add_stock(db, user.id, payload)
+    data = add_stock(db, user.id, payload)
+    return APIResponse(success=True, data=data, message="Stock added successfully")
 
-@router.put("/{stock_id}")
+@router.put("/{stock_id}", response_model=APIResponse[PortfolioResponse])
 def update_portfolio_stock(
     stock_id: int,
     payload: PortfolioUpdate,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-    return update_stock(db, stock_id, user.id, payload)
+    data = update_stock(db, stock_id, user.id, payload)
+    return APIResponse(success=True, data=data, message="Stock updated successfully")
 
 # ... (existing imports)
 from app.services.rebalancer_service import RebalancerService
+from app.services.risk_rebalancer_service import RiskRebalancerService
 from pydantic import BaseModel
 
 class PortfolioActionRequest(BaseModel):
-    action: str # "rebalance"
+    action: str # "rebalance" | "risk_rebalance"
     mode: str = "dry_run" # dry_run | execute
     reason: str = "manual"
 
-@router.post("/{user_id}/actions")
+@router.post("/actions", response_model=APIResponse[dict])
 def portfolio_actions(
-    user_id: int,
     payload: PortfolioActionRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # Authorization check (assuming straightforward user_id check)
-    if current_user.id != user_id:
-        return {"error": "Unauthorized"}
-        
     if payload.action == "rebalance":
         service = RebalancerService(db, current_user)
-        return service.run_rebalance(mode=payload.mode, reason=payload.reason)
+        result = service.run_rebalance(mode=payload.mode, reason=payload.reason)
+        return APIResponse(success=True, data=result, message="Rebalance action executed")
+    elif payload.action == "risk_rebalance":
+        service = RiskRebalancerService(db, current_user)
+        result = service.run_rebalance(mode=payload.mode, reason=payload.reason)
+        return APIResponse(success=True, data=result, message="Risk-reducing rebalance executed")
     
-    return {"message": "Unknown action"}
+    return APIResponse(success=False, error="Unknown action")
 
-@router.delete("/{stock_id}")
+@router.delete("/{stock_id}", response_model=APIResponse[dict])
 def remove_stock(
     stock_id: int,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
     delete_stock(db, stock_id, user.id)
-    return {"message": "Deleted"}
+    return APIResponse(success=True, message="Deleted")
+
+@router.delete("", response_model=APIResponse[dict])
+def remove_all_stocks(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    delete_all_stocks(db, user.id)
+    return APIResponse(success=True, message="All stocks deleted")

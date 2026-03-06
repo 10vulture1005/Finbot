@@ -1,0 +1,13 @@
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - /var/run/postgresql:/var/run/postgresql
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+    network_mode: host

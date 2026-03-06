@@ -2,12 +2,12 @@ from app.core.security import hash_password
 from app.models.user import User
 from app.core.security import verify_password, create_access_token
 
+def get_user_by_email(db, email: str):
+    return db.query(User).filter(User.email == email).first()
 
-
-
-def signin(db, email: str, password: str) -> str:
+def signin(db, email: str, password: str):
   
-    user = db.query(User).filter(User.email == email).first()
+    user = get_user_by_email(db, email)
     
     if not user:
         raise ValueError("Invalid email or password")
@@ -19,12 +19,7 @@ def signin(db, email: str, password: str) -> str:
 
         raise ValueError("Invalid email or password")
 
-    # Create JWT token
-    token = create_access_token(
-        {"sub": str(user.id)}
-    )
-
-    return token
+    return user
 
 def signup(db,name, email, password, is_active=False):
     if db.query(User).filter(User.email == email).first():

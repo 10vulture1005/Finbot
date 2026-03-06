@@ -1,20 +1,24 @@
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 
 class PortfolioCreate(BaseModel):
     symbol: str
     quantity: float
     avg_price: float
+    purchase_date: Optional[datetime] = None
 
 class PortfolioUpdate(BaseModel):
     quantity: float
     avg_price: float
+    purchase_date: Optional[datetime] = None
 
 class PortfolioResponse(BaseModel):
     id: int
     symbol: str
     quantity: float
     avg_price: float
+    purchase_date: Optional[datetime] = None
     
     # Risk Metrics
     risk_contribution: Optional[float] = None
@@ -28,5 +32,13 @@ class PortfolioResponse(BaseModel):
     sector: Optional[str] = "Unknown"
     daily_return: Optional[float] = None
 
+    class Config:
+        from_attributes = True
+
+class PortfolioHistoryResponse(BaseModel):
+    date: datetime
+    total_value: float
+    daily_return: Optional[float] = None
+    
     class Config:
         from_attributes = True

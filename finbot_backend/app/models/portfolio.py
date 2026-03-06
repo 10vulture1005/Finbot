@@ -12,6 +12,7 @@ class PortfolioStock(Base):
     symbol = Column(String, index=True)
     quantity = Column(Float)
     avg_price = Column(Float)
+    purchase_date = Column(DateTime, default=datetime.utcnow)
 
     # Risk Metrics
     risk_contribution = Column(Float, nullable=True)

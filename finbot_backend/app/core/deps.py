@@ -12,6 +12,7 @@ def get_current_user(
     db: Session = Depends(get_db),
 ):
     if not authorization:
+        print("DEBUG: Authorization header missing")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization header missing",
@@ -21,8 +22,10 @@ def get_current_user(
     try:
         scheme, token = authorization.split(" ")
         if scheme.lower() != "bearer":
+            print(f"DEBUG: Invalid scheme {scheme}")
             raise ValueError()
     except ValueError:
+        print("DEBUG: ValueError splitting header")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authorization header format",
@@ -35,14 +38,20 @@ def get_current_user(
             algorithms=[settings.JWT_ALGORITHM],
         )
         user_id = int(payload.get("sub"))
-    except (JWTError, TypeError, ValueError):
+        print(f"DEBUG: Token decoded for user_id: {user_id}")
+    except (JWTError, TypeError, ValueError) as e:
+        print(f"DEBUG: Token decode error: {e}")
+        # Hint for expiration
+        if "ExpiredSignatureError" in str(e):
+             print("DEBUG: Token has EXPIRED.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail=f"Invalid or expired token: {str(e)}",
         )
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        print(f"DEBUG: User {user_id} not found in DB")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
