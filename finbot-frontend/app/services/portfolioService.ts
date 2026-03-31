@@ -1,18 +1,32 @@
-import api from "@/app/libs/api";
+import api from "./api";
 
 export interface PortfolioActionPayload {
-  action: "rebalance";
+  action: "rebalance" | "risk_rebalance";
   mode: "dry_run" | "execute";
   reason: "manual" | "scheduled" | "drift";
 }
 
 export interface RebalanceResponse {
   executed: boolean;
-  vol_before: number;
-  vol_after: number;
+  vol_before?: number;
+  vol_after?: number;
   turnover?: number;
   drift_detected: boolean;
   explanation: string;
+  current_weights?: Record<string, number>;
+  new_weights?: Record<string, number>;
+  metrics?: {
+    expected_return?: number;
+    expected_volatility?: number;
+  };
+  validation?: {
+    volatility_before: number;
+    volatility_after: number;
+    sharpe_before: number;
+    sharpe_after: number;
+    max_drawdown_before: number;
+    max_drawdown_after: number;
+  };
 }
 
 // NOTE: Using /api/v1/portfolio based on backend implementation
@@ -38,8 +52,6 @@ export interface PortfolioStock {
     daily_return?: number;
 }
 
-// ... (imports)
-
 export interface UserPortfolioData {
     id: number;
     email: string;
@@ -53,10 +65,9 @@ export interface UserPortfolioData {
     risk_model_version?: string;
 }
 
-export const getPortfolio = async (user_id?: number) => {
-  // Currently backend GET /api/v1/portfolio/ uses current user from token
-  const response = await api.get("/portfolio/");
-  return response.data as PortfolioStock[]; 
+export const getPortfolio = async () => {
+  const response = await api.get("/portfolio");
+  return (response.data || []) as PortfolioStock[]; 
 };
 
 export const getCurrentUser = async () => {
@@ -64,12 +75,41 @@ export const getCurrentUser = async () => {
   return response.data as UserPortfolioData;
 };
 
-export const triggerRebalance = async (user_id: number, payload: PortfolioActionPayload) => {
-  const response = await api.post(`/portfolio/${user_id}/actions`, payload);
+export const triggerRebalance = async (payload: PortfolioActionPayload) => {
+  const response = await api.post(`/portfolio/actions`, payload);
   return response.data as RebalanceResponse;
 };
 
-export const addStock = async (symbol: string, quantity: number, avg_price: number) => {
-  const response = await api.post("/portfolio/", { symbol, quantity, avg_price });
+export const addStock = async (stock: { symbol: string; quantity: number; avg_price: number; purchase_date?: string }) => {
+  const response = await api.post("/portfolio", stock);
   return response.data;
+};
+
+export const updateStock = async (id: number, stock: { quantity: number; avg_price: number; }) => {
+  const response = await api.put(`/portfolio/${id}`, stock);
+  return response.data;
+};
+
+export const deleteStock = async (id: number) => {
+  await api.delete(`/portfolio/${id}`);
+};
+
+export const deleteAllStocks = async () => {
+  await api.delete("/portfolio");
+};
+
+export const runQuantAnalysis = async () => {
+  const response = await api.post('/quant/analyze', {});
+  return response.data;
+};
+
+export interface PortfolioHistoryItem {
+  date: string;
+  total_value: number;
+  daily_return?: number;
+}
+
+export const getHistory = async () => {
+    const response = await api.get('/portfolio/history');
+    return (response.data || []) as PortfolioHistoryItem[];
 };

@@ -13,23 +13,147 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import { getPortfolio, getCurrentUser, PortfolioStock } from "@/app/services/portfolioService";
-import { getStockQuote, StockQuote } from "@/app/services/marketService";
+import { getPortfolio, getCurrentUser, PortfolioStock, deleteStock, updateStock } from "@/app/services/portfolioService";
+import { getQuote, StockQuote } from "@/app/services/marketService";
+import { toast } from "sonner";
+
+const SellStockModal = ({ stock, onClose, onConfirm }: { stock: PortfolioStock, onClose: () => void, onConfirm: (quantity: number) => void }) => {
+  const [sellQty, setSellQty] = React.useState(stock?.quantity?.toString() || '');
+  const [error, setError] = React.useState('');
+
+  if (!stock) return null;
+
+  const handleConfirm = () => {
+      const q = parseFloat(sellQty);
+      if (isNaN(q) || q <= 0) {
+          setError("Please enter a valid amount.");
+          return;
+      }
+      if (q > stock.quantity) {
+          setError(`You cannot sell more than you own (${stock.quantity}).`);
+          return;
+      }
+      onConfirm(q);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+            {/* Using basic X char or lucide icon if imported */}
+            ✕
+        </button>
+        <h3 className="text-xl font-bold mb-4">Sell {stock.symbol}</h3>
+        <p className="text-sm text-muted-foreground mb-4">You own <strong>{stock.quantity}</strong> shares. Quantity to sell:</p>
+        
+        <input 
+            type="number" 
+            step="any"
+            value={sellQty} 
+            onChange={e => { setSellQty(e.target.value); setError(''); }} 
+            className="w-full p-3 rounded-lg border border-input bg-background mb-2 focus:ring-2 focus:ring-primary/20 outline-none" 
+        />
+        {error && <p className="text-xs text-red-500 mb-4">{error}</p>}
+        
+        <button 
+            onClick={handleConfirm}
+            className="w-full py-3 mt-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors"
+        >
+            Confirm Sell
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const BuyStockModal = ({ stock, onClose, onConfirm }: { stock: PortfolioStock, onClose: () => void, onConfirm: (quantity: number, price: number, date: string) => void }) => {
+  const [buyQty, setBuyQty] = React.useState('');
+  const [buyPrice, setBuyPrice] = React.useState(stock?.current_price?.toString() || stock?.avg_price?.toString() || '');
+  const [purchaseDate, setPurchaseDate] = React.useState(new Date().toISOString().split('T')[0]);
+  const [error, setError] = React.useState('');
+
+  if (!stock) return null;
+
+  const handleConfirm = () => {
+      const q = parseFloat(buyQty);
+      const p = parseFloat(buyPrice);
+      if (isNaN(q) || q <= 0 || isNaN(p) || p <= 0) {
+          setError("Please enter valid amount and price.");
+          return;
+      }
+      onConfirm(q, p, purchaseDate);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+            ✕
+        </button>
+        <h3 className="text-xl font-bold mb-4">Buy {stock.symbol}</h3>
+        
+        <div className="mb-4">
+          <label className="block text-sm text-muted-foreground mb-1">Quantity</label>
+          <input 
+              type="number" 
+              step="any"
+              value={buyQty} 
+              onChange={e => { setBuyQty(e.target.value); setError(''); }} 
+              className="w-full p-3 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none" 
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm text-muted-foreground mb-1">Purchase Price (₹)</label>
+          <input 
+              type="number" 
+              step="any"
+              value={buyPrice} 
+              onChange={e => { setBuyPrice(e.target.value); setError(''); }} 
+              className="w-full p-3 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none" 
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm text-muted-foreground mb-1">Date</label>
+          <input 
+              type="date" 
+              value={purchaseDate} 
+              onChange={e => { setPurchaseDate(e.target.value); setError(''); }} 
+              className="w-full p-3 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none" 
+          />
+        </div>
+        
+        {error && <p className="text-xs text-red-500 mb-4">{error}</p>}
+        
+        <button 
+            onClick={handleConfirm}
+            className="w-full py-3 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-colors"
+        >
+            Confirm Buy
+        </button>
+      </div>
+    </div>
+  );
+};
+
 
 export default function HoldingsPage() {
   const [holdings, setHoldings] = React.useState<PortfolioStock[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [sellStockData, setSellStockData] = React.useState<PortfolioStock | null>(null);
+  const [buyStockData, setBuyStockData] = React.useState<PortfolioStock | null>(null);
 
   const fetchData = async () => {
     try {
         const u = await getCurrentUser();
         // Assuming getPortfolio uses the user ID from the token or we pass u.id if needed.
-        // Based on service definition: const getPortfolio = async (user_id?: number)
-        const data = await getPortfolio(u.id);
+        // Based on service definition: const getPortfolio = async ()
+        const data = await getPortfolio();
         
         // Fetch real-time quotes
         const updatedHoldings = await Promise.all(data.map(async (stock) => {
-             const quote = await getStockQuote(stock.symbol);
+             const quote = await getQuote(stock.symbol);
              if (quote.price > 0) {
                  return {
                      ...stock,
@@ -46,6 +170,48 @@ export default function HoldingsPage() {
     } finally {
         setLoading(false);
     }
+  };
+
+  const executePartialSell = async (quantityToSell: number) => {
+      if (!sellStockData) return;
+      setLoading(true);
+      try {
+          if (quantityToSell >= sellStockData.quantity) {
+              await deleteStock(sellStockData.id);
+          } else {
+              await updateStock(sellStockData.id, {
+                  quantity: sellStockData.quantity - quantityToSell,
+                  avg_price: sellStockData.avg_price 
+              });
+          }
+          await fetchData();
+          setSellStockData(null);
+      } catch (e) {
+          console.error(e);
+          toast.error("Failed to process sell request.");
+          setLoading(false);
+      }
+  };
+
+  const executePartialBuy = async (quantityToBuy: number, price: number, date: string) => {
+      if (!buyStockData) return;
+      setLoading(true);
+      try {
+          const newQty = buyStockData.quantity + quantityToBuy;
+          const newAvgPrice = ((buyStockData.quantity * buyStockData.avg_price) + (quantityToBuy * price)) / newQty;
+          
+          await updateStock(buyStockData.id, {
+              quantity: newQty,
+              avg_price: newAvgPrice
+          });
+          
+          await fetchData();
+          setBuyStockData(null);
+      } catch (e) {
+          console.error(e);
+          toast.error("Failed to process buy request.");
+          setLoading(false);
+      }
   };
 
   React.useEffect(() => {
@@ -168,10 +334,18 @@ export default function HoldingsPage() {
                         </td>
                         <td className="px-6 py-4 text-center">
                             <div className="flex items-center justify-center gap-2">
-                                <button className="p-2 hover:bg-emerald-500/10 hover:text-emerald-500 rounded-md transition-colors" title="Buy More">
+                                <button 
+                                    onClick={() => setBuyStockData(stock)}
+                                    className="p-2 hover:bg-emerald-500/10 hover:text-emerald-500 rounded-md transition-colors" 
+                                    title="Buy More"
+                                >
                                     <span className="text-xs font-bold">Buy</span>
                                 </button>
-                                <button className="p-2 hover:bg-rose-500/10 hover:text-rose-500 rounded-md transition-colors" title="Sell">
+                                <button 
+                                    onClick={() => setSellStockData(stock)}
+                                    className="p-2 hover:bg-rose-500/10 hover:text-rose-500 rounded-md transition-colors" 
+                                    title="Sell"
+                                >
                                     <span className="text-xs font-bold">Sell</span>
                                 </button>
                                 <Link href={`/dashboard/analysis`} className="p-2 hover:bg-primary/10 hover:text-primary rounded-md transition-colors" title="Analyze">
@@ -187,6 +361,22 @@ export default function HoldingsPage() {
           </table>
         </div>
       </div>
+
+      {sellStockData && (
+          <SellStockModal 
+              stock={sellStockData} 
+              onClose={() => setSellStockData(null)} 
+              onConfirm={executePartialSell} 
+          />
+      )}
+
+      {buyStockData && (
+          <BuyStockModal 
+              stock={buyStockData} 
+              onClose={() => setBuyStockData(null)} 
+              onConfirm={executePartialBuy} 
+          />
+      )}
     </div>
   );
 }

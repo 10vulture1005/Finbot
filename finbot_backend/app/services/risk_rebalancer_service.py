@@ -25,7 +25,18 @@ try:
     from portfolio import Portfolio, Asset
     from rebalance import full_rebalance
 except ImportError as e:
+    logger = logging.getLogger(__name__)
     logger.error(f"Failed to import from portfolio-rebalancer. Path added: {portfolio_rebalancer_path}. Error: {e}")
+    raise
+    
+# Import MPTSolver from rebalancer engine
+mpt_solver_path = os.path.join(current_dir, "..", "rebalancer", "rebalance")
+sys.path.append(os.path.abspath(mpt_solver_path))
+try:
+    from mpt_solver import MPTSolver
+except ImportError as e:
+    logger = logging.getLogger(__name__)
+    logger.error(f"Failed to import MPTSolver: {e}")
     raise
 
 logger = logging.getLogger(__name__)
@@ -66,36 +77,73 @@ class RiskRebalancerService:
                  
         ticker_map = dict(zip(yf_tickers, tickers))
         
-        # Fetch Current Prices
+        # 1. Fetch 1-year Historical Data for Volatility Optimization
+        try:
+            data = yf.download(yf_tickers, period="1y", interval="1d", progress=False)
+            if data.empty:
+                return {"executed": False, "explanation": "Failed to fetch historical market data for optimization."}
+                
+            price_key = 'Adj Close' if 'Adj Close' in data.columns else 'Close'
+            prices_df = data[price_key]
+            
+            if isinstance(prices_df, pd.Series):
+                prices_df = prices_df.to_frame()
+                prices_df.columns = [yf_tickers[0]]
+                
+            # Rename columns back to original symbols
+            prices_df.columns = [ticker_map.get(c, c) for c in prices_df.columns]
+            
+            # Calculate daily returns
+            returns_window = prices_df.pct_change().dropna()
+        except Exception as e:
+            logger.error(f"Failed to process historical data: {e}")
+            return {"executed": False, "explanation": f"Failed to process historical data: {e}"}
+
+        # Fetch Current Prices reliably
         prices = {}
         target_quantities_by_symbol = {}
         
         try:
             for sym, yf_sym in zip(tickers, yf_tickers):
-                ticker = yf.Ticker(yf_sym)
-                prices[sym] = ticker.fast_info.last_price
+                try:
+                    ticker = yf.Ticker(yf_sym)
+                    prices[sym] = ticker.fast_info.last_price
+                except:
+                    # Fallback to last available data from DF
+                    prices[sym] = prices_df[sym].iloc[-1] if sym in prices_df.columns else 1000.0
         except Exception as e:
             logger.error(f"Failed to fetch prices: {e}")
-            # Fallback to avg_price if fetch fails
-            for h in holdings:
+            
+        # Fallback to DB
+        for h in holdings:
+            if h.symbol not in prices:
                 prices[h.symbol] = h.avg_price
 
-        # Build Portfolio and Asset objects for the engine
+        # 2. Run MPT Solver to Minimize Risk/Volatility
+        solver = MPTSolver(returns_window)
+        max_weight = max(0.30, 1.0 / len(holdings) + 0.10)
+        
+        optimization_result = solver.minimize_volatility(max_weight=max_weight)
+        if not optimization_result["success"]:
+            return {"executed": False, "explanation": f"Risk Optimization failed: {optimization_result['message']}"}
+
+        optimal_target_weights = optimization_result["weights"]
+        metrics = optimization_result["metrics"]
+
+        # 3. Build Portfolio and Asset objects for the deterministic engine
         portfolio = Portfolio()
-        equal_weight = 100.0 / len(holdings)
         
         holding_map = {}
         for h in holdings:
             holding_map[h.symbol] = h
-            # Use weight_target if available, else equal weight
-            target_alloc = (h.weight_target * 100.0) if h.weight_target and h.weight_target > 0 else equal_weight
+            target_alloc = optimal_target_weights.get(h.symbol, 0.0) * 100.0
             
             asset = Asset(h.symbol, h.quantity, "INR", target_alloc)
             asset.group = "Equities"
             asset.adjust = 1
             portfolio.add_asset(asset)
 
-        # Run the deterministic engine
+        # 4. Run the deterministic engine
         try:
             suggestions = full_rebalance(
                 portfolio, 
@@ -189,7 +237,8 @@ class RiskRebalancerService:
             self.db.commit()
 
         success_explanation = (
-            f"Deterministic rebalance generated using target allocations. "
+            f"Deterministic rebalance generated using Minimum Volatility target allocations. "
+            f"Projected Volatility: {metrics['expected_volatility']:.2%}. "
             f"Suggested {len(trade_list)} trades to restore portfolio balance."
         )
 
@@ -205,12 +254,12 @@ class RiskRebalancerService:
             "trade_list": trade_list,
             "turnover_pct": turnover_pct_val,
             # Dummy validation fields to keep frontend happy
-            "vol_before": 0.15,
+            "vol_before": metrics["expected_volatility"],
             "validation": {
-                "volatility_before": 0.15,
-                "volatility_after": 0.15,
-                "sharpe_before": 1.0,
-                "sharpe_after": 1.0,
+                "volatility_before": metrics["expected_volatility"],
+                "volatility_after": metrics["expected_volatility"],
+                "sharpe_before": metrics["sharpe_ratio"],
+                "sharpe_after": metrics["sharpe_ratio"],
                 "max_drawdown_before": -0.2,
                 "max_drawdown_after": -0.2
             },

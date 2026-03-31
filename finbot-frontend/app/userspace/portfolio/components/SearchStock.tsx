@@ -1,19 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Search, TrendingUp, TrendingDown } from 'lucide-react';
-import { Stock } from '../type/stock';
-import { StockAPI } from '../api/stockapi';
-import { formatCurrency } from '../utils/format';
+import { Search } from 'lucide-react';
+import { searchStocks, StockResult } from '@/app/services/marketService';
 
 interface SearchStockProps {
   darkMode: boolean;
-  onSelect: (stock: Stock) => void;
+  onSelect: (stock: StockResult) => void;
 }
 
 const SearchStock: React.FC<SearchStockProps> = ({ darkMode, onSelect }) => {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Stock[]>([]);
+  const [results, setResults] = useState<StockResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   const cardBg = darkMode ? '#1a1f2e' : '#ffffff';
@@ -25,9 +23,15 @@ const SearchStock: React.FC<SearchStockProps> = ({ darkMode, onSelect }) => {
     const t = setTimeout(async () => {
       if (query) {
         setIsSearching(true);
-        const data = await StockAPI.fetchStockList(query);
-        setResults(data);
-        setIsSearching(false);
+        try {
+            const data = await searchStocks(query);
+            setResults(data);
+        } catch (e) {
+            console.error(e);
+            setResults([]);
+        } finally {
+            setIsSearching(false);
+        }
       } else {
         setResults([]);
       }
@@ -49,7 +53,7 @@ const SearchStock: React.FC<SearchStockProps> = ({ darkMode, onSelect }) => {
           }}
         />
         <input
-          placeholder="Search NSE stocks (e.g., RELIANCE, TCS, INFY)"
+          placeholder="Search NSE stocks (e.g., RELIANCE, TCS)"
           value={query}
           onChange={e => setQuery(e.target.value)}
           style={{
@@ -124,35 +128,7 @@ const SearchStock: React.FC<SearchStockProps> = ({ darkMode, onSelect }) => {
                     {s.name}
                   </p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <p style={{ 
-                    fontSize: '14px', 
-                    fontWeight: '600', 
-                    color: textColor,
-                    margin: 0,
-                    marginBottom: '4px'
-                  }}>
-                    {formatCurrency(s.price)}
-                  </p>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '4px', 
-                    justifyContent: 'flex-end' 
-                  }}>
-                    {s.change >= 0 ? (
-                      <TrendingUp size={14} color="#10b981" />
-                    ) : (
-                      <TrendingDown size={14} color="#ef4444" />
-                    )}
-                    <span style={{
-                      fontSize: '12px',
-                      color: s.change >= 0 ? '#10b981' : '#ef4444'
-                    }}>
-                      {s.changePercent.toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
+                {/* Price display removed as API doesn't support it yet */}
               </div>
             </div>
           ))}

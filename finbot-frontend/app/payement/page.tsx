@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Shield, Lock, CreditCard, CheckCircle, AlertCircle } from 'lucide-react';
 import { useRazorpay, RazorpayOrderOptions } from "react-razorpay";
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 interface PaymentData {
   razorpay_payment_id: string;
@@ -81,7 +82,7 @@ const RazorpayPayment: React.FC = () => {
     // });
 
     // razorpayInstance.open();
-    alert('payment Done!!')
+    toast.success('Payment Done!!')
     router.push('/dashboard')
   };
 

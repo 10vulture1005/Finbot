@@ -4,6 +4,8 @@ import FloatingNavbar from '../../land/navbar';
 import api from '@/app/libs/api';
 import { useRouter } from 'next/navigation';
 import { log } from 'console';
+import { toast } from 'sonner';
+
 const SignUpForm: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,7 +31,7 @@ const handleSignUp = async (e: React.FormEvent) => {
 
   try {
     // 👇 use centralized api.ts
-    const res = await api.post("/auth/signup-init", {
+    const res = await api.post("/api/auth/signup-init", {
       name,
       email,
       password,
@@ -44,11 +46,11 @@ const handleSignUp = async (e: React.FormEvent) => {
 
     // ✅ redirect after successful signup
     router.push("/payement");
-  } catch (err: any) {
+    } catch (err: any) {
     console.log(
       err?.response?.data?.detail || "Sign up failed"
     );
-    alert(err?.response?.data?.detail || "Sign up failed")
+    toast.error(err?.response?.data?.detail || "Sign up failed")
   }
 };
 

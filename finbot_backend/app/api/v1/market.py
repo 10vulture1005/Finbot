@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
+import httpx
 import pandas as pd
 import os
+from app.core.config import settings
 
 router = APIRouter(prefix="/market", tags=["market"])
 
@@ -138,3 +140,43 @@ def get_quote(symbol: str):
             "changePercent": 0,
             "error": str(e)
         })
+
+@router.get("/news/{symbol}", response_model=APIResponse[dict])
+async def get_stock_news_and_data(symbol: str):
+    """
+    Fetch recent news, analyst views, and risk meter for a given stock symbol using the Indian Stock API.
+    """
+    try:
+        if not settings.NEWS_API:
+            return APIResponse(success=False, error="News API key not configured", data={})
+
+        # Strip .NS or .BO suffix from symbol if present as the API uses plain names/symbols
+        search_term = symbol.replace('.NS', '').replace('.BO', '')
+
+        async with httpx.AsyncClient() as client:
+            headers = {"X-Api-Key": settings.NEWS_API}
+            # API expects something like ?name=Reliance
+            url = f"https://stock.indianapi.in/stock?name={search_term}"
+            
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # Extract desired sections
+            news = data.get('recentNews', [])
+            analyst_view = data.get('analystView', [])
+            risk_meter = data.get('riskMeter', {})
+            
+            return APIResponse(success=True, data={
+                "news": news,
+                "analystView": analyst_view,
+                "riskMeter": risk_meter
+            })
+
+    except httpx.HTTPError as he:
+        print(f"HTTP error fetching data for {symbol}: {he}")
+        return APIResponse(success=False, error=f"News API response error: {str(he)}", data={})
+    except Exception as e:
+        print(f"Error fetching data for {symbol}: {e}")
+        return APIResponse(success=False, error=str(e), data={})

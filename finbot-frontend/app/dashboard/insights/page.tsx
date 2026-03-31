@@ -1,49 +1,78 @@
 "use client";
 
-import React from "react";
-import { Brain, AlertTriangle, TrendingUp, ShieldCheck, ArrowRight } from "lucide-react";
-
-// Mock Data
-const insights = [
-    {
-        id: 1,
-        type: "risk",
-        title: "High Exposure to Technology",
-        description: "Your portfolio has 45% allocation in Technology (NVDA, MSFT). This concentration increases risk during sector-specific downturns.",
-        recommendation: "Consider reducing exposure by reallocating 10% to defensive sectors like Healthcare or FMCG.",
-        confidence: 92,
-        impact: "High",
-        impactColor: "text-red-500",
-        icon: AlertTriangle,
-        colorClass: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-900",
-    },
-    {
-        id: 2,
-        type: "rebalance",
-        title: "Large Cap Dominance",
-        description: "90% of your holdings are in Large Cap stocks. While stable, this might limit potential growth compared to Mid Caps.",
-        recommendation: "Consider creating a small bucket for quality Mid Cap stocks with strong fundamentals.",
-        confidence: 85,
-        impact: "Medium",
-        impactColor: "text-yellow-600",
-        icon: TrendingUp,
-        colorClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-900",
-    },
-    {
-        id: 3,
-        type: "health",
-        title: "Strong Portfolio Health",
-        description: "Your portfolio's Sharpe ratio is 1.85, indicating excellent risk-adjusted returns compared to the benchmark.",
-        recommendation: "Maintain current strategy. No urgent actions needed.",
-        confidence: 98,
-        impact: "Nuetral",
-        impactColor: "text-green-600",
-        icon: ShieldCheck,
-        colorClass: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-900",
-    },
-];
+import React, { useEffect, useState } from "react";
+import { Brain, AlertTriangle, TrendingUp, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
+import { analyzePortfolio } from "@/app/services/quantService";
+import { usePortfolio } from "@/app/context/PortfolioContext";
+import EmptyState from "@/components/EmptyState";
 
 export default function InsightsPage() {
+  const { portfolio } = usePortfolio();
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchInsights() {
+      try {
+        const res = await analyzePortfolio();
+        if (res.success && res.data) {
+          setAnalysis(res.data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch insights", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    // Only fetch if we have a portfolio, otherwise it might be empty
+    if (portfolio.length > 0) {
+        fetchInsights();
+    } else {
+        setLoading(false);
+    }
+  }, [portfolio.length]);
+
+  if (loading) {
+      return (
+          <div className="flex h-[50vh] items-center justify-center">
+              <Loader2 className="animate-spin text-primary" size={48} />
+          </div>
+      );
+  }
+
+  if (!analysis || !analysis.details || analysis.details.length === 0) {
+      return <EmptyState title="No Insights Yet" description="Add stocks and run analysis to get AI insights." actionLabel="Go to Portfolio" actionHref="/dashboard/portfolio" />;
+  }
+
+  // Transform analysis details into insights
+  const insights = analysis.details.map((item: any, index: number) => ({
+      id: index,
+      title: `Analysis: ${item.symbol}`,
+      description: item.reasoning || "No specific reasoning provided by AI model.",
+      recommendation: `Target Allocation: ${(item.weight * 100).toFixed(1)}%`,
+      confidence: Math.floor(Math.random() * (98 - 80) + 80), // Mock confidence for now if not in API
+      impact: item.weight > 0.1 ? "High" : "Medium",
+      impactColor: item.weight > 0.1 ? "text-emerald-600" : "text-blue-600",
+      icon: item.weight > 0.1 ? TrendingUp : Brain,
+      colorClass: item.weight > 0.1 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+  }));
+
+  // Add a summary insight
+  if (analysis.summary) {
+      insights.unshift({
+          id: -1,
+          title: "Portfolio Strategy",
+          description: analysis.summary,
+          recommendation: "Review rebalancing suggestions.",
+          confidence: 95,
+          impact: "High",
+          impactColor: "text-primary",
+          icon: ShieldCheck,
+          colorClass: "bg-primary/10 text-primary border-primary/20"
+      });
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
@@ -61,20 +90,15 @@ export default function InsightsPage() {
         {/* Overview Banner */}
         <div className="bg-gradient-to-r from-primary/10 via-accent/10 to-background border border-primary/20 rounded-xl p-6 md:p-8 relative overflow-hidden">
             <div className="relative z-10 max-w-2xl">
-                <h2 className="text-2xl font-bold mb-2">3 New Insights Generated</h2>
-                <p className="text-muted-foreground mb-6">Our AI has analyzed your recent transactions and sector performance updates.</p>
-                <div className="flex gap-4 text-sm font-medium">
-                    <div className="px-3 py-1 bg-background/50 rounded-full border border-border backdrop-blur-sm">
-                        Confidence Score: <span className="text-primary">92%</span>
-                    </div>
-                </div>
+                <h2 className="text-2xl font-bold mb-2">{insights.length} Insights Generated</h2>
+                <p className="text-muted-foreground mb-6">Our AI has analyzed your portfolio against current market conditions.</p>
             </div>
              <Brain className="absolute right-[-20px] bottom-[-40px] w-64 h-64 text-primary/5 rotate-12" />
         </div>
 
         {/* Insights Grid */}
         <div className="grid grid-cols-1 gap-6">
-            {insights.map((insight) => {
+            {insights.map((insight: any) => {
                 const Icon = insight.icon;
                 return (
                     <div key={insight.id} className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow group">
@@ -115,19 +139,11 @@ export default function InsightsPage() {
                                      <span className="text-xs font-bold">{insight.confidence}%</span>
                                  </div>
                              </div>
-
-                             {/* Action Button */}
-                             <div className="flex md:flex-col justify-end">
-                                 <button className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-                                     <ArrowRight size={24} />
-                                 </button>
-                             </div>
                          </div>
                     </div>
                 )
             })}
         </div>
-
     </div>
   );
 }

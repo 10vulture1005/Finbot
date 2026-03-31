@@ -1,12 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { 
   ShieldAlert, 
   Activity, 
   AlertTriangle, 
   CheckCircle, 
-  Info, 
   TrendingDown, 
   TrendingUp,
   HelpCircle,
@@ -19,71 +18,11 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Cell,
-  AreaChart,
-  Area,
-  CartesianGrid
+  Cell
 } from "recharts";
-
-// --- Mock Data ---
-
-const riskOverview = {
-  riskScore: 7.2,
-  healthScore: 65,
-  summary: "Portfolio is heavily concentrated in Technology, increasing volatility. Downside protection is weak against market corrections."
-};
-
-const topConcentration = [
-  { name: "NVDA", value: 45, fill: "var(--color-chart-1)" },
-  { name: "TSLA", value: 24, fill: "var(--color-chart-2)" },
-  { name: "AAPL", value: 12, fill: "var(--color-chart-3)" },
-  { name: "MSFT", value: 8, fill: "var(--color-chart-4)" },
-  { name: "AMZN", value: 6, fill: "var(--color-chart-5)" },
-];
-
-const sectorHHI = {
-  value: 0.42, // High concentration
-  status: "High",
-  explanation: "Herfindahl-Hirschman Index (HHI) measures sector concentration. Higher is riskier."
-};
-
-const correlationMatrix = [
-    [1.0, 0.85, 0.76, 0.12],
-    [0.85, 1.0, 0.65, 0.05],
-    [0.76, 0.65, 1.0, -0.15],
-    [0.12, 0.05, -0.15, 1.0]
-];
-const correlationLabels = ["Tech", "Cons. Disc", "Comm.", "Bonds"];
-
-const downsideMetrics = {
-    volatility: "24.5%",
-    maxDrawdown: "-32.4%",
-    var95: "₹45,200", // Value at Risk
-    expectedShortfall: "₹62,100"
-};
-
-const qualityMetrics = {
-    sharpe: 1.85,
-    sortino: 2.15,
-    benchmarkBeta: 1.24
-};
-
-const rebalancingSignals = [
-    {
-        id: 1,
-        type: "Critical",
-        issue: "Single Stock Exposure > 20%",
-        action: "Reduce NVDA by 15%",
-        impact: "Improves Diversification Score by 12 points."
-    },
-    {
-        id: 2,
-        type: "Warning",
-        issue: "High Sector Correlation",
-        action: "Add Defensive Assets (Gold/Bonds)",
-        impact: "Reduces Max Drawdown risk by ~8%."
-    }
-];
+import { usePortfolio } from "@/app/context/PortfolioContext";
+import { analyzePortfolio } from "@/app/services/quantService";
+import EmptyState from "@/components/EmptyState";
 
 // --- Components ---
 
@@ -126,34 +65,59 @@ const MetricItem = ({ label, value, explanation, status, trend }: {
     );
 };
 
-const CorrelationCell = ({ value }: { value: number }) => {
-    // Color scale from -1 (green) to 1 (red)
-    const intensity = Math.abs(value);
-    let bg = "bg-muted";
-    let text = "text-foreground";
-    
-    if (value > 0.7) {
-        bg = `bg-rose-500/${Math.floor(intensity * 30)}`; // High correlation = risky
-        text = "text-rose-600 dark:text-rose-400";
-    } else if (value < 0.3 && value > -0.3) {
-        bg = `bg-emerald-500/${Math.floor((1-intensity) * 20)}`; // Low correlation = good
-        text = "text-emerald-600 dark:text-emerald-400";
-    } else if (value <= -0.3) {
-        bg = `bg-blue-500/${Math.floor(intensity * 30)}`; // Negative correlation = distinct
-        text = "text-blue-600 dark:text-blue-400";
-    }
-
-    return (
-        <div className={`w-full h-10 ${bg} flex items-center justify-center rounded text-xs font-medium ${text} transition-all hover:scale-105`}>
-            {value.toFixed(2)}
-        </div>
-    );
-};
-
-
 export default function RiskPage() {
+  const { portfolio, loading } = usePortfolio();
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  useEffect(() => {
+      // Auto-analyze on load if portfolio exists
+      if (portfolio.length > 0 && !analysis) {
+          runAnalysis();
+      }
+  }, [portfolio.length]); // ESLint: ignore analysis dep
+
+  const runAnalysis = async () => {
+      setAnalyzing(true);
+      try {
+          const res = await analyzePortfolio();
+          if (res.success && res.data) {
+              setAnalysis(res.data);
+          }
+      } catch (e) {
+          console.error("Analysis failed", e);
+      } finally {
+          setAnalyzing(false);
+      }
+  };
+
+  // 1. Concentration Metrics from Portfolio
+  const totalValue = (portfolio || []).reduce((sum, h) => sum + (h.market_value || 0), 0);
+  
+  const topConcentration = (portfolio || [])
+    .map(h => ({
+        name: h.symbol,
+        value: totalValue > 0 ? parseFloat(((h.market_value || 0) / totalValue * 100).toFixed(1)) : 0,
+        fill: "var(--color-primary)" // Simplify color for now
+    }))
+    .sort((a,b) => b.value - a.value)
+    .slice(0, 5);
+
+  const topHoldingPct = topConcentration.length > 0 ? topConcentration[0].value : 0;
+
+  // 2. Risk Metrics from Analysis (Mock fallback if analysis not ready/failed?)
+  // Ideally we show skeleton. For now, use analysis data or defaults.
+  // We'll show "N/A" if no analysis.
+  
+  if (loading) return <div>Loading...</div>;
+  if (!portfolio || portfolio.length === 0) return <EmptyState title="No Risk Data" description="Add stocks to analyze risk." actionLabel="Add Stock" actionHref="/dashboard/add-stock" />;
+
+  const riskScore = "N/A"; // Risk Score generator was removed during refactoring, can be re-added later.
+  const volatility = analysis?.expected_volatility ? (analysis.expected_volatility * 100).toFixed(1) + "%" : "N/A";
+  const sharpe = analysis?.sharpe_ratio ? analysis.sharpe_ratio.toFixed(2) : "N/A";
+  
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-[1600px] mx-auto p-4 md:p-0">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-[1600px] mx-auto p-4 md:p-0 pb-12">
       
       {/* Header */}
       <div className="flex justify-between items-end border-b border-border pb-6">
@@ -161,23 +125,26 @@ export default function RiskPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-1">Risk & Health</h1>
           <p className="text-sm text-muted-foreground">Quantitative risk breakdown and rebalancing signals.</p>
         </div>
+        <button 
+            onClick={runAnalysis} 
+            disabled={analyzing}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+        >
+            {analyzing ? "Analyzing..." : "Refresh Analysis"}
+        </button>
       </div>
 
       {/* Section 1: Risk Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="p-6 md:col-span-1 border-l-4 border-l-rose-500 relative overflow-hidden">
+          <Card className="p-6 md:col-span-1 border-l-4 border-l-primary relative overflow-hidden">
                <div className="absolute top-0 right-0 p-4 opacity-5">
                    <ShieldAlert size={120} />
                </div>
-               <h3 className="text-sm font-medium text-muted-foreground mb-4">Portfolio Risk Score (0-10)</h3>
+               <h3 className="text-sm font-medium text-muted-foreground mb-4">Portfolio Volatility expected</h3>
                <div className="flex items-end gap-3 mb-2">
-                   <span className="text-5xl font-bold text-foreground">{riskOverview.riskScore}</span>
-                   <span className="text-xl text-muted-foreground font-medium mb-1">/ 10</span>
+                   <span className="text-5xl font-bold text-foreground">{volatility}</span>
                </div>
-               <div className="w-full bg-secondary h-2 rounded-full overflow-hidden mb-4">
-                   <div className="bg-rose-500 h-full w-[72%]"></div>
-               </div>
-               <p className="text-sm font-medium text-rose-500">Risk Level: High</p>
+               <p className="text-sm font-medium text-muted-foreground">Mathematical Minimum Risk</p>
           </Card>
 
           <Card className="p-6 md:col-span-2 flex flex-col justify-center">
@@ -188,33 +155,21 @@ export default function RiskPage() {
                    <div>
                        <h3 className="font-semibold text-lg mb-1">AI Risk Summary</h3>
                        <p className="text-muted-foreground text-sm leading-relaxed">
-                           {riskOverview.summary}
+                           {analysis?.summary || "Run analysis to get AI insights on your portfolio risk."}
                        </p>
-                       <div className="mt-4 flex items-center gap-6">
-                           <div>
-                               <p className="text-xs text-muted-foreground mb-0.5">Health Score</p>
-                               <p className="text-xl font-bold text-yellow-500">{riskOverview.healthScore}/100</p>
-                           </div>
-                           <div className="h-8 w-[1px] bg-border"></div>
-                           <div>
-                               <p className="text-xs text-muted-foreground mb-0.5">Primary Driver</p>
-                               <p className="text-sm font-medium">Concentration (Tech)</p>
-                           </div>
-                       </div>
                    </div>
               </div>
           </Card>
       </div>
 
-      {/* Section 2: Where Risk Comes From */}
+      {/* Section: Concentration */}
       <div>
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <AlertTriangle size={18} className="text-orange-500" /> Source of Risk
+              <AlertTriangle size={18} className="text-orange-500" /> Concentration Risk
           </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
-              {/* Concentration */}
-              <Card className="p-6 lg:col-span-1">
+              <Card className="p-6">
                   <h3 className="text-sm font-medium text-muted-foreground mb-6">Top-5 Holding Concentration</h3>
                   <div className="h-[200px] w-full">
                        <ResponsiveContainer width="100%" height="100%">
@@ -231,143 +186,25 @@ export default function RiskPage() {
                        </ResponsiveContainer>
                   </div>
                   <div className="mt-2 text-xs text-center text-muted-foreground">
-                      NVDA accounts for <span className="font-bold text-foreground">45%</span> of your portfolio.
+                      Top holding accounts for <span className="font-bold text-foreground">{topHoldingPct}%</span> of your portfolio.
                   </div>
               </Card>
 
-              {/* HHI Index */}
-              <Card className="p-6 lg:col-span-1 flex flex-col items-center justify-center text-center">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-4">Sector Concentration (HHI)</h3>
-                  <div className="relative w-40 h-40 flex items-center justify-center bg-muted/30 rounded-full mb-4 border-8 border-transparent border-t-rose-500 border-r-rose-500 border-b-rose-500/30 border-l-rose-500/30 rotate-45">
-                       <div className="-rotate-45 text-center">
-                            <span className="text-3xl font-bold text-foreground block">{sectorHHI.value}</span>
-                            <span className="text-xs font-bold text-rose-500 uppercase">{sectorHHI.status}</span>
-                       </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground max-w-[200px]">
-                      {sectorHHI.explanation}
-                  </p>
-              </Card>
-
-              {/* Correlation */}
-              <Card className="p-6 lg:col-span-1">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-4">Asset Correlation Matrix</h3>
-                  <div className="space-y-2">
-                       {/* Header Row */}
-                       <div className="grid grid-cols-5 gap-1 text-[10px] text-muted-foreground text-center mb-2">
-                           <div></div>
-                           {correlationLabels.map(l => <div key={l}>{l.substring(0,4)}</div>)}
-                       </div>
-                       {/* Rows */}
-                       {correlationMatrix.map((row, i) => (
-                           <div key={i} className="grid grid-cols-5 gap-1 items-center">
-                               <div className="text-[10px] font-medium text-muted-foreground">{correlationLabels[i].substring(0,4)}</div>
-                               {row.map((val, j) => (
-                                   <CorrelationCell key={`${i}-${j}`} value={val} />
-                               ))}
-                           </div>
-                       ))}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-4 text-center">
-                      High correlation means assets move together (Less Diversified).
-                  </p>
-              </Card>
-          </div>
-      </div>
-
-      {/* Section 3 & 4: Quantitative Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* Downside Risk */}
-          <div className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <TrendingDown size={18} className="text-rose-500" /> Downside Risk
-              </h2>
+              {/* Metrics */}
               <Card className="p-4 grid grid-cols-2 gap-4">
                   <MetricItem 
-                      label="Max Drawdown" 
-                      value={downsideMetrics.maxDrawdown} 
-                      explanation="Largest drop from peak to trough. Shows historical loss potential."
-                      status={parseFloat(downsideMetrics.maxDrawdown) < -20 ? 'risky' : 'neutral'}
+                      label="Volatility" 
+                      value={volatility} 
+                      explanation="Standard deviation of returns."
+                      status={parseFloat(volatility) > 20 ? 'risky' : 'neutral'}
                   />
-                  <MetricItem 
-                      label="Value at Risk (95%)" 
-                      value={downsideMetrics.var95} 
-                      explanation="Maximum estimated loss on a bad market day (95% confidence)."
-                      status="risky"
-                  />
-                  <MetricItem 
-                      label="Expected Shortfall" 
-                      value={downsideMetrics.expectedShortfall} 
-                      explanation="Average loss in scenarios worse than the VaR threshold."
-                      status="risky"
-                  />
-                  <MetricItem 
-                      label="Portfolio Volatility" 
-                      value={downsideMetrics.volatility} 
-                      explanation="Standard deviation of returns. Higher means more price swings."
-                      status="neutral"
-                  />
-              </Card>
-          </div>
-
-          {/* Risk Quality */}
-          <div className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <CheckCircle size={18} className="text-emerald-500" /> Risk-Adjusted Quality
-              </h2>
-              <Card className="p-4 grid grid-cols-2 gap-4">
-                  <MetricItem 
+                   <MetricItem 
                       label="Sharpe Ratio" 
-                      value={qualityMetrics.sharpe} 
-                      explanation="Return per unit of total risk. > 1 is good, > 2 is excellent."
-                      status={qualityMetrics.sharpe > 1.5 ? 'good' : 'neutral'}
-                  />
-                  <MetricItem 
-                      label="Sortino Ratio" 
-                      value={qualityMetrics.sortino} 
-                      explanation="Return per unit of downside risk. Better for volatile assets."
-                      status="good"
-                  />
-                  <MetricItem 
-                      label="Beta vs Benchmark" 
-                      value={qualityMetrics.benchmarkBeta} 
-                      explanation="Sensitivity to market moves. 1.0 = Market, >1 = Aggressive."
-                      status="risky"
-                  />
-                  <MetricItem 
-                      label="Diversification Ratio" 
-                      value="1.8" 
-                      explanation="Ratio of weighted average risk to portfolio risk."
-                      status="neutral"
+                      value={sharpe} 
+                      explanation="Return per unit of risk."
+                      status={parseFloat(sharpe) > 1 ? 'good' : 'neutral'}
                   />
               </Card>
-          </div>
-      </div>
-
-      {/* Section 5: Rebalancing Signals */}
-      <div>
-          <h2 className="text-lg font-semibold mb-4">Rebalancing Signals</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {rebalancingSignals.map((signal) => (
-                  <Card key={signal.id} className="p-5 flex flex-col justify-between border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
-                       <div className="mb-4">
-                           <div className="flex justify-between items-start mb-2">
-                               <span className="text-xs font-bold uppercase tracking-wider text-orange-500 bg-orange-500/10 px-2 py-1 rounded">
-                                   {signal.type}
-                               </span>
-                               <ArrowRight size={16} className="text-muted-foreground" />
-                           </div>
-                           <h4 className="font-semibold text-lg">{signal.issue}</h4>
-                           <p className="text-sm text-muted-foreground mt-1">Suggested: <span className="font-medium text-foreground">{signal.action}</span></p>
-                       </div>
-                       <div className="pt-4 border-t border-border mt-auto">
-                           <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                               <TrendingUp size={12} /> {signal.impact}
-                           </p>
-                       </div>
-                  </Card>
-              ))}
           </div>
       </div>
 

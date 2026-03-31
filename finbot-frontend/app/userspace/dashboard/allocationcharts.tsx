@@ -66,7 +66,7 @@ const AllocationChart: React.FC<AllocationChartProps> = ({
                 borderRadius: "8px",
                 color: textColor,
               }}
-              formatter={(value?: number) => [`${value ?? 0}%`, "Allocation"]}
+              formatter={(value: any) => [`${Number(value) || 0}%`, "Allocation"]}
             />
           </PieChart>
         </ResponsiveContainer>

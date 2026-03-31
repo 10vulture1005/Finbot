@@ -35,11 +35,12 @@ class QuantService:
 
     def run_analysis(self, db: Session, user: User):
         """
-        Runs the standalone deterministic rebalance (full_rebalance) instead of the AI pipeline
-        to provide deterministic target weights for the frontend preview.
+        Runs the MPTSolver to generate minimum-volatility target weights,
+        then feeds those into the deterministic rebalancer for trade suggestions.
         """
         from app.models.portfolio import PortfolioStock
         import yfinance as yf
+        from app.rebalancer.rebalance.mpt_solver import MPTSolver
         
         holdings = db.query(PortfolioStock).filter_by(user_id=user.id).all()
         
@@ -53,33 +54,64 @@ class QuantService:
             tickers = [h.symbol for h in holdings]
             yf_tickers = [t + ".NS" if not (t.endswith(".NS") or t.endswith(".BO") or t.endswith(".US")) else t for t in tickers]
             
-            # Fetch Prices
-            prices = {}
+            # Fetch 1-year Historical Data for Volatility Optimization
+            data = yf.download(yf_tickers, period="1y", interval="1d", progress=False)
+            
+            if data.empty:
+                return {"status": "error", "message": "Failed to fetch historical market data for optimization."}
+                
+            price_key = 'Adj Close' if 'Adj Close' in data.columns else 'Close'
+            prices_df = data[price_key]
+            
+            if isinstance(prices_df, pd.Series):
+                prices_df = prices_df.to_frame()
+                prices_df.columns = [yf_tickers[0]]
+                
+            # Rename columns back to original symbols
+            ticker_map = dict(zip(yf_tickers, tickers))
+            prices_df.columns = [ticker_map.get(c, c) for c in prices_df.columns]
+            
+            # Calculate daily returns
+            returns_window = prices_df.pct_change().dropna()
+            
+            # Current Latest Prices
+            latest_prices = {}
             for sym, yf_sym in zip(tickers, yf_tickers):
                 try:
-                    ticker = yf.Ticker(yf_sym)
-                    prices[sym] = ticker.fast_info.last_price
+                    # Ticker.fast_info is more reliable for current instant
+                    ticker_obj = yf.Ticker(yf_sym)
+                    latest_prices[sym] = ticker_obj.fast_info.last_price
                 except:
-                    prices[sym] = 1000.0 # Fallback
-            
+                    latest_prices[sym] = prices_df[sym].iloc[-1] if sym in prices_df.columns else 1000.0
+
             # Use fallback for any missing
             for h in holdings:
-                if h.symbol not in prices:
-                    prices[h.symbol] = h.avg_price
+                if h.symbol not in latest_prices:
+                    latest_prices[h.symbol] = h.avg_price
 
-            # Build Portfolio and Asset objects for the engine
+            # Run MPT Solver to Minimize Risk/Volatility
+            solver = MPTSolver(returns_window)
+            max_weight = max(0.30, 1.0 / len(holdings) + 0.10)
+            
+            optimization_result = solver.minimize_volatility(max_weight=max_weight)
+            if not optimization_result["success"]:
+                return {"status": "error", "message": f"Optimization failed: {optimization_result['message']}"}
+
+            optimal_target_weights = optimization_result["weights"]
+            metrics = optimization_result["metrics"]
+
+            # Build Portfolio and Asset objects for the engine based on MPT Targets
             portfolio = Portfolio()
-            equal_weight = 100.0 / len(holdings)
             
             holding_map = {}
             total_value = 0.0
             
             for h in holdings:
                 holding_map[h.symbol] = h
-                price = prices.get(h.symbol, h.avg_price)
+                price = latest_prices.get(h.symbol, h.avg_price)
                 total_value += h.quantity * price
                 
-                target_alloc = (h.weight_target * 100.0) if h.weight_target and h.weight_target > 0 else equal_weight
+                target_alloc = optimal_target_weights.get(h.symbol, 0.0) * 100.0
                 
                 asset = Asset(h.symbol, h.quantity, "INR", target_alloc)
                 asset.group = "Equities"
@@ -87,18 +119,18 @@ class QuantService:
                 portfolio.add_asset(asset)
 
             # Calculate current weights before rebalance
-            current_weights = {h.symbol: ((h.quantity * prices.get(h.symbol, h.avg_price)) / total_value) if total_value > 0 else 0 for h in holdings}
+            current_weights = {h.symbol: ((h.quantity * latest_prices.get(h.symbol, h.avg_price)) / total_value) if total_value > 0 else 0 for h in holdings}
 
-            # Run deterministic engine to get target quantites
+            # Run deterministic engine to get exact target quantites based on MPT
             suggestions = full_rebalance(
                 portfolio, 
-                prices, 
+                latest_prices, 
                 "INR", 
                 use_ceil=False, 
                 distribute_across_adjustables=True
             )
             
-            # Calculate target static weights from the suggestions
+            # Calculate final target static weights from the suggestions
             target_quantities = {}
             for h in holdings:
                 target_quantities[h.symbol] = h.quantity
@@ -110,7 +142,7 @@ class QuantService:
             details = []
             
             for sym, tgt_q in target_quantities.items():
-                price = prices.get(sym, 1.0)
+                price = latest_prices.get(sym, 1.0)
                 target_val = tgt_q * price
                 target_w = target_val / total_value if total_value > 0 else 0.0
                 target_weights[sym] = target_w
@@ -119,7 +151,7 @@ class QuantService:
                     "symbol": sym,
                     "weight": target_w,
                     "current_weight": current_weights.get(sym, 0.0),
-                    "reasoning": "Deterministic static target allocation",
+                    "reasoning": f"Optimized to minimize portfolio volatility (Expected Vol: {metrics['expected_volatility']:.2%})",
                     "probability": 1.0,
                     "price": price
                 })
@@ -127,15 +159,15 @@ class QuantService:
             result = {
                 "weights": target_weights,
                 "details": details,
-                "expected_return": 0.0,
-                "expected_volatility": 0.15,
-                "sharpe_ratio": 1.0
+                "expected_return": metrics["expected_return"],
+                "expected_volatility": metrics["expected_volatility"],
+                "sharpe_ratio": metrics["sharpe_ratio"]
             }
 
             return {
                 "status": "success",
                 "data": result,
-                "message": "Deterministic quant analysis complete."
+                "message": "Minimum volatility analysis complete."
             }
             
         except Exception as e:

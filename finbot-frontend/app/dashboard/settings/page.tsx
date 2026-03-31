@@ -33,7 +33,7 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
-          {/* Left Navigation (Mock) */}
+          {/* Left Navigation */}
           <div className="md:col-span-1 space-y-1">
               {[
                   { icon: User, label: "Profile", active: true },

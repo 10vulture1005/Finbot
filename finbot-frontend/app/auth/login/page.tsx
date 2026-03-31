@@ -1,9 +1,11 @@
 "use client"
 import React, { useState } from 'react';
 import FloatingNavbar from '../../land/navbar';
-import api from '@/app/libs/api';
+import api from '@/app/services/api';
 import { useRouter } from 'next/navigation';
-import { log } from 'console';
+import { TokenResponse } from '@/app/types/models';
+import { toast } from 'sonner';
+
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,30 +17,38 @@ const LoginForm: React.FC = () => {
 
 
     try {
-      const res = await api.post("/auth/signin", {
+      const res = await api.post<TokenResponse>("/auth/signin", {
         email,
         password,
       });
 
-      const { access_token } = res.data;
-      console.log(res.data);
-      
-      
-      // // ⚠️ Only if backend is NOT using HttpOnly cookies
-      if (access_token) {
-        if (rememberMe) {
-          localStorage.setItem("access_token", access_token);
-        } else {
-          sessionStorage.setItem("access_token", access_token);
-        }
+      if (res.success && res.data) {
+          const { access_token } = res.data;
+          console.log(res.data);
+          
+          if (access_token) {
+            if (rememberMe) {
+              localStorage.setItem("access_token", access_token);
+              // alert("DEBUG: Saved token to LocalStorage");
+            } else {
+              sessionStorage.setItem("access_token", access_token);
+              // alert("DEBUG: Saved token to SessionStorage");
+            }
+             // ✅ redirect
+            router.push("/dashboard");
+          } else {
+              toast.error("Login successful but NO TOKEN in response?");
+          }
+      } else {
+          console.error("Login Error:", res.error);
+          toast.error("Login Failed: " + (res.error || res.message || "Unknown error"));
       }
 
-      // ✅ redirect
-      router.push("/dashboard");
     } catch (err: any) {
       console.log(
-        err?.response?.data?.detail || "Invalid email or password"
+        err?.message || "Invalid email or password"
       );
+      toast.error("Login Failed: " + (err?.message || "Unknown error"));
     } 
   };
 

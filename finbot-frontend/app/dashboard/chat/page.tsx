@@ -1,61 +1,62 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { C1Chat } from "@thesysai/genui-sdk";
 
 export default function ChatPage() {
   const [threadId, setThreadId] = useState<string>("");
   const [initialMessages, setInitialMessages] = useState<any[]>([]);
+  const [authToken, setAuthToken] = useState<string>("");
 
   useEffect(() => {
-    // 1. Get or create threadId
-    let storedThreadId = localStorage.getItem("finbot_thread_id");
-    if (!storedThreadId) {
-      storedThreadId = crypto.randomUUID();
-      localStorage.setItem("finbot_thread_id", storedThreadId);
-    }
-    setThreadId(storedThreadId);
+    const token =
+      localStorage.getItem("access_token") ||
+      sessionStorage.getItem("access_token") ||
+      "";
+    setAuthToken(token);
 
-    // 2. Fetch history
-    if (storedThreadId) {
-         // Use relative URL which goes through Next.js rewrite
-        fetch(`/api/chat/${storedThreadId}`)
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    setInitialMessages(data);
-                }
-            })
-            .catch(err => console.error("Failed to load history", err));
+    // Also set cookie as a secondary fallback
+    if (token) {
+      document.cookie = `finbot_token=${token}; path=/; SameSite=Lax`;
     }
+
+    // Fresh thread ID every session
+    const freshThreadId = crypto.randomUUID();
+    localStorage.setItem("finbot_thread_id", freshThreadId);
+    setThreadId(freshThreadId);
+
+    // Init thread — best effort, chat_endpoint will also resolve auth via query param
+    fetch(`/api/chat/init`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ threadId: freshThreadId }),
+    }).catch((err) => console.error("Chat init failed:", err));
   }, []);
+
+  const C1ChatAny = C1Chat as any;
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
-      
-      {/* Header */}
       <div className="flex justify-between items-center bg-card border border-border p-4 rounded-xl shadow-sm shrink-0">
-          <div>
-              <h1 className="text-xl font-bold tracking-tight">Finbot Assistant</h1>
-              <p className="text-sm text-muted-foreground">Powered by Thesys AI.</p>
-          </div>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Finbot Assistant</h1>
+          <p className="text-sm text-muted-foreground">Powered by Thesys AI.</p>
+        </div>
       </div>
 
-      {/* Chat Interface */}
-      <div className="flex-1 border border-border rounded-xl shadow-sm overflow-hidden relative  flex flex-col items-center">
-          <div className="w-full h-full flex flex-col relative">
-            {threadId && (
-                // @ts-ignore
-                <C1Chat 
-                    apiUrl="/api/chat" 
-                    initialMessages={initialMessages}
-                    headers={{ "x-finbot-thread-id": threadId }}
-                    theme={{ mode: 'dark' }}
-                />
-            )}
-          </div>
+      <div className="flex-1 border border-border rounded-xl shadow-sm overflow-hidden relative flex flex-col items-center">
+        <div className="w-full h-full flex flex-col relative">
+          {threadId && (
+            <C1ChatAny
+              apiUrl={`/api/chat${authToken ? `?token=${authToken}` : ""}`}
+              initialMessages={initialMessages}
+              theme={{ mode: "dark" }}
+            />
+          )}
+        </div>
       </div>
-
     </div>
   );
 }

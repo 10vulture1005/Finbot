@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Upload, Plus, CheckCircle, AlertCircle, FileText } from "lucide-react";
-import { searchStocks } from "@/app/services/marketService";
+import { searchStocks, getQuote } from "@/app/services/marketService";
 import { addStock } from "@/app/services/portfolioService";
 
 export default function AddStockPage() {
@@ -39,9 +39,20 @@ export default function AddStockPage() {
     return () => clearTimeout(timer);
   }, [formData.stockName, showSuggestions]);
 
-  const selectStock = (stock: any) => {
+  const selectStock = async (stock: any) => {
+    // Optimistically set symbol
     setFormData((prev) => ({ ...prev, stockName: stock.symbol }));
     setShowSuggestions(false);
+    
+    // Fetch current price to pre-populate buyPrice
+    try {
+        const quote = await getQuote(stock.symbol);
+        if (quote && quote.price) {
+            setFormData((prev) => ({ ...prev, buyPrice: quote.price.toString() }));
+        }
+    } catch (e) {
+        console.error("Failed to fetch quote for pre-population", e);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,7 +92,11 @@ export default function AddStockPage() {
     setSuccessMessage("");
     
     try {
-      await addStock(formData.stockName, Number(formData.quantity), Number(formData.buyPrice));
+      await addStock({
+        symbol: formData.stockName, 
+        quantity: Number(formData.quantity), 
+        avg_price: Number(formData.buyPrice)
+      });
       setSuccessMessage("Stock added successfully to your portfolio!");
       setFormData({ stockName: "", quantity: "", buyPrice: "", buyDate: "" });
     } catch (error) {
@@ -93,7 +108,7 @@ export default function AddStockPage() {
     }
   };
 
-  // Mock calculated value
+  // Calculated Total Value
   const totalValue =
     Number(formData.quantity || 0) * Number(formData.buyPrice || 0);
 
@@ -284,23 +299,10 @@ export default function AddStockPage() {
               </ul>
             </div>
             
-            <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
+            {/* <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
                  <h3 className="font-medium mb-3">Recently Added</h3>
-                 <div className="space-y-3">
-                     {[1,2].map((i) => (
-                         <div key={i} className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded-lg transition-colors cursor-default">
-                             <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
-                                 {i === 1 ? 'N' : 'T'}
-                             </div>
-                             <div className="flex-1">
-                                 <p className="text-sm font-medium">{i === 1 ? 'NVDA' : 'TSLA'}</p>
-                                 <p className="text-xs text-muted-foreground">Added 2 days ago</p>
-                             </div>
-                             <div className="text-xs font-medium text-green-600">Successfully</div>
-                         </div>
-                     ))}
-                 </div>
-            </div>
+                 <p className="text-sm text-muted-foreground">Recent transactions will appear here.</p>
+            </div> */}
           </div>
         </div>
       )}

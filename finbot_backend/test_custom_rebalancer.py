@@ -16,7 +16,7 @@ from portfolio import Portfolio, Asset
 from rebalance import full_rebalance
 import json
 import yfinance as yf
-import json
+import pandas as pd
 
 def create_mock_user_and_portfolio(db, symbols, amounts):
     # Try finding an existing mock user or create one
@@ -88,9 +88,46 @@ def main():
     portfolio = Portfolio()
     equal_weight = 100.0 / len(symbols_to_test)
     
+    # 2. Add Risk Minimizer (MPT)
+    print("\nOptimizing Target Weights to Minimize Volatility...")
+    
+    # Fetch 1y Data for MPT
+    yf_tickers = [sym if (sym.endswith(".NS") or sym.endswith(".BO") or sym.endswith(".US")) else f"{sym}.NS" for sym in symbols_to_test]
+    data = yf.download(yf_tickers, period="1y", interval="1d", progress=False)
+    price_key = 'Adj Close' if 'Adj Close' in data.columns else 'Close'
+    prices_df = data[price_key]
+    if isinstance(prices_df, pd.Series):
+        prices_df = prices_df.to_frame()
+        prices_df.columns = [yf_tickers[0]]
+        
+    ticker_map = dict(zip(yf_tickers, symbols_to_test))
+    prices_df.columns = [ticker_map.get(c, c) for c in prices_df.columns]
+    returns_window = prices_df.pct_change().dropna()
+    
+    # Import MPTSolver
+    backend_root = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(backend_root)
+    from app.rebalancer.rebalance.mpt_solver import MPTSolver
+    
+    solver = MPTSolver(returns_window)
+    max_weight = max(0.30, 1.0 / len(symbols_to_test) + 0.10)
+    optimization_result = solver.minimize_volatility(max_weight=max_weight)
+    
+    if optimization_result["success"]:
+        target_weights = optimization_result["weights"]
+        metrics = optimization_result["metrics"]
+        print(f"Success! Expected Volatility: {metrics['expected_volatility']:.2%}")
+        for sym, w in target_weights.items():
+            print(f"  Target {sym}: {w:.1%}")
+    else:
+        print("Optimization failed, falling back to equal weight.")
+        target_weights = {sym: equal_weight / 100.0 for sym in symbols_to_test}
+
+    
     for sym, qty in zip(symbols_to_test, quantities):
         # Asset(ticker, shares, currency, target_allocation)
-        asset = Asset(sym, qty, "INR", equal_weight)
+        target_pct = target_weights.get(sym, equal_weight / 100.0) * 100.0
+        asset = Asset(sym, qty, "INR", target_pct)
         asset.group = "Equities"
         asset.adjust = 1
         portfolio.add_asset(asset)

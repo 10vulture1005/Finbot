@@ -1,7 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import { StockAPI } from "../api/stockapi";
-import { StockDetails, PortfolioStock } from "../type/stock";
+import { getQuote, StockQuote } from "@/app/services/marketService";
+
+// Define locally if missing
+interface PortfolioStock {
+    symbol: string;
+    // Add other fields if used, but for now symbol is enough
+}
 
 interface Props {
   stock: PortfolioStock;
@@ -9,10 +14,10 @@ interface Props {
 }
 
 export default function StockDetailView({ stock, onBack }: Props) {
-  const [details, setDetails] = useState<StockDetails | null>(null);
+  const [details, setDetails] = useState<StockQuote | null>(null);
 
   useEffect(() => {
-    StockAPI.fetchStockDetails(stock.symbol).then(setDetails);
+    getQuote(stock.symbol).then(setDetails);
   }, [stock.symbol]);
 
   if (!details) return <div>Loading…</div>;

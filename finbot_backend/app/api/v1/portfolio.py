@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.schemas.portfolio import PortfolioResponse, PortfolioCreate, PortfolioUpdate, PortfolioHistoryResponse
-from app.services.portfolio_service import get_portfolio, add_stock, update_stock, delete_stock, delete_all_stocks, get_portfolio_history
+from app.services.portfolio_service import get_portfolio, add_stock, update_stock, delete_stock, delete_all_stocks, get_portfolio_history, get_portfolio_analytics, get_portfolio_growth
 
 router = APIRouter(prefix="/portfolio", tags=["Portfolio"])
 
@@ -24,6 +24,31 @@ def portfolio_history(
 ):
     data = get_portfolio_history(db, user.id)
     return APIResponse(success=True, data=data)
+
+@router.get("/analytics", response_model=APIResponse[dict])
+def portfolio_analytics(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    try:
+        data = get_portfolio_analytics(db, user.id)
+        return APIResponse(success=True, data=data)
+    except Exception as e:
+        print(f"Error serving portfolio analytics: {e}")
+        return APIResponse(success=False, error="Failed to calculate analytics")
+
+@router.get("/growth", response_model=APIResponse[list[dict]])
+def portfolio_growth(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    """Return a 30-day portfolio value timeline computed from yfinance historical prices."""
+    try:
+        data = get_portfolio_growth(db, user.id)
+        return APIResponse(success=True, data=data)
+    except Exception as e:
+        print(f"Error computing portfolio growth: {e}")
+        return APIResponse(success=False, error="Failed to compute growth data", data=[])
 
 
 
