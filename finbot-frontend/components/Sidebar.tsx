@@ -31,7 +31,7 @@ export default function Sidebar() {
     { label: "Risk & Health", href: "/dashboard/risk", icon: Activity },
     { label: "AI Insights", href: "/dashboard/insights", icon: Brain },
     { label: "Stock Analysis", href: "/dashboard/analysis", icon: LineChart },
-    { label: "Goals & Planning", href: "/dashboard/goals", icon: Goal },
+    // { label: "Goals & Planning", href: "/dashboard/goals", icon: Goal },
     { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquare },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
   ];

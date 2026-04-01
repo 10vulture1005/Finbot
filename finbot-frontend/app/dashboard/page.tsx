@@ -204,9 +204,9 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">Portfolio performance and analytics.</p>
         </div>
         <div className="flex gap-2">
-            <button className="text-sm font-medium px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow-sm hover:opacity-90 transition-opacity">
+            {/* <button className="text-sm font-medium px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow-sm hover:opacity-90 transition-opacity">
                 Download Report
-            </button>
+            </button> */}
         </div>
       </div>
 
@@ -394,9 +394,9 @@ export default function DashboardPage() {
                         <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
                             {metrics.todaysPnL < 0 ? "Consider rebalancing if volatility persists." : "Portfolio aligned with target risk."}
                         </p>
-                        <button className="text-xs font-medium bg-secondary hover:bg-secondary/80 text-secondary-foreground px-3 py-2 rounded-md transition-colors flex items-center gap-1">
+                        {/* <button className="text-xs font-medium bg-secondary hover:bg-secondary/80 text-secondary-foreground px-3 py-2 rounded-md transition-colors flex items-center gap-1">
                             Full Analysis <ArrowRight size={12} />
-                        </button>
+                        </button> */}
                     </div>
                 </Card>
             </div>

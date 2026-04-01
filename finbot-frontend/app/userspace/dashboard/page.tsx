@@ -235,7 +235,8 @@ const Dashboard: React.FC = () => {
                 <Menu size={24} />
               </button>
               <div>
-                <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: textColor }}>Dashboard</h2>
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: textColor }}>Dashboard-</h2>
+                <p style={{ fontSize: '14px', color: 'yellow' }}>The actual one is way better.</p>
                 <p style={{ fontSize: '14px', color: mutedColor }}>Welcome back, John</p>
               </div>
             </div>

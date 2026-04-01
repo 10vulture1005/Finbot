@@ -1,5 +1,5 @@
 # app/models/user.py
-from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, JSON
 from app.models.base import BaseModel
 
 class User(BaseModel):
@@ -16,3 +16,5 @@ class User(BaseModel):
     rebalance_threshold = Column(Float, nullable=True)  # risk drift %
     last_rebalance_at = Column(DateTime, nullable=True)
     risk_model_version = Column(String, nullable=True)
+    risk_analysis = Column(JSON, nullable=True)  # Stores Gemini risk analysis result
+

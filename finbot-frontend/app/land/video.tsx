@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, useMotionValue, useSpring } from "framer-motion";
 import {
   AreaChart,
@@ -336,6 +337,7 @@ export default function HeroWithStats({
   ctaSecondary = "Learn more",
 }: HeroWithStatsProps) {
   
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const mouseX = useSpring(0, { stiffness: 500, damping: 28 });
   const mouseY = useSpring(0, { stiffness: 500, damping: 28 });
@@ -436,7 +438,7 @@ export default function HeroWithStats({
               transition={{ duration: 0.6, delay: 0.4, ease: "easeOut" }}
               className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
             >
-              <button className="bg-white text-black px-8 py-3.5 rounded-full font-semibold text-lg hover:bg-gray-100 transform hover:scale-105 transition-all shadow-sm hover:shadow-md shadow-cyan-500/10">
+              <button onClick={() => router.push("/userspace/dashboard")} className="bg-white text-black px-8 py-3.5 rounded-full font-semibold text-lg hover:bg-gray-100 transform hover:scale-105 transition-all shadow-sm hover:shadow-md shadow-cyan-500/10">
                 {ctaPrimary}
               </button>
               <button className="px-8 py-3.5 rounded-full font-semibold text-lg text-white border border-white/20 hover:bg-white/5 backdrop-blur-sm transition-all hover:border-white/40">

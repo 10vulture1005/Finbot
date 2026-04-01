@@ -2,7 +2,7 @@
 
 import { triggerRebalance, addStock, deleteAllStocks, PortfolioStock } from "@/app/services/portfolioService";
 import { usePortfolio } from "@/app/context/PortfolioContext";
-import { analyzePortfolio, executeRebalance } from "@/app/services/quantService";
+import { analyzePortfolio, executeRebalance, getRiskAnalysis, generateRiskAnalysis, RiskAnalysisResult } from "@/app/services/quantService";
 import React from "react";
 import { toast } from "sonner";
 // ... (rest of imports)
@@ -141,6 +141,40 @@ export default function PortfolioPage() {
   // AI State
   const [aiResult, setAiResult] = React.useState<any>(null);
 
+  // --- Risk Analysis State ---
+  const [riskAnalysis, setRiskAnalysis] = React.useState<RiskAnalysisResult | null>(null);
+  const [isAnalysingRisk, setIsAnalysingRisk] = React.useState(false);
+
+  // Load cached risk analysis on mount
+  React.useEffect(() => {
+    getRiskAnalysis().then((res) => { if (res) setRiskAnalysis(res); }).catch(() => {});
+  }, []);
+
+  const handleGenerateRisk = async () => {
+    setIsAnalysingRisk(true);
+    try {
+      const response = await import("@/app/services/api").then(m => m.default.post("/quant/risk-analysis"));
+      const data = (response.data as any);
+      if (data?.success && data?.data) {
+        setRiskAnalysis(data.data);
+        if (data.data._quota_notice || data.message?.includes("quota") || data.message?.includes("cached")) {
+          toast.warning(data.message || "Showing cached analysis — Gemini quota exhausted for today.");
+        }
+      } else {
+        const err = data?.error || "Failed to generate risk analysis";
+        if (err.includes("quota") || err.includes("exhausted")) {
+          toast.warning("⚠ Gemini quota exhausted for today. Try again tomorrow or visit https://aistudio.google.com to add billing.");
+        } else {
+          toast.error(err);
+        }
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to generate risk analysis");
+    } finally {
+      setIsAnalysingRisk(false);
+    }
+  };
+
   const runAIAnalysis = async () => {
       setIsRebalancing(true);
       setAiResult(null);
@@ -174,7 +208,7 @@ export default function PortfolioPage() {
            const data = await executeRebalance(targetWeights);
            
            if (data.status === 'success') {
-               toast.success(`AI Rebalance Executed!\n${data.trades.join('\n')}`);
+               toast.success(`AI Rebalance Executed!\nRs{data.trades.join('\n')}`);
                setAiResult(null);
                await fetchData();
            } else {
@@ -247,13 +281,13 @@ export default function PortfolioPage() {
       symbol: h.symbol,
       name: h.symbol, // name missing in API currently
       return: `${((h.daily_return || 0) * 100).toFixed(2)}%`,
-      price: `$${(h.current_price || 0).toFixed(2)}`
+      price: `₹${(h.current_price || 0).toFixed(2)}`
   }));
   const worstPerformers = sortedByPerf.slice(-3).reverse().map(h => ({
       symbol: h.symbol,
       name: h.symbol,
       return: `${((h.daily_return || 0) * 100).toFixed(2)}%`,
-      price: `$${(h.current_price || 0).toFixed(2)}`
+      price: `₹${(h.current_price || 0).toFixed(2)}`
   }));
   
   // Risky Stocks (High Risk Contribution)
@@ -398,8 +432,8 @@ export default function PortfolioPage() {
 
         {/* Top Metrics Row */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-             <MetricCard label="Total Investment" value={`$${totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-             <MetricCard label="Current Value" value={`$${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}`} subtext={`${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}% All time`} />
+             <MetricCard label="Total Investment" value={`₹${totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
+             <MetricCard label="Current Value" value={`₹${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}`} subtext={`${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}% All time`} />
              <MetricCard 
                 label="Volatility" 
                 value={rebalanceState ? `${(rebalanceState.vol_before * 100).toFixed(1)}%` : `${((user?.target_volatility || 0.14) * 100).toFixed(1)}%`} 
@@ -551,39 +585,132 @@ export default function PortfolioPage() {
             </div>
 
              {/* Risk Radar */}
-             <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+             <div className="bg-card border border-border rounded-xl p-6 shadow-sm flex flex-col">
                 <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                     <ShieldAlert size={20} className="text-muted-foreground" />
                     Risk Analysis
+                    {riskAnalysis && (
+                        <span className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-full ${
+                            riskAnalysis.risk_score === 'High' ? 'bg-red-500/15 text-red-500' :
+                            riskAnalysis.risk_score === 'Low' ? 'bg-green-500/15 text-green-500' :
+                            'bg-amber-500/15 text-amber-500'
+                        }`}>
+                            {riskAnalysis.risk_score} Risk
+                        </span>
+                    )}
                 </h3>
-                {rebalanceState ? (
-                    <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg mb-6">
-                        <p className="text-sm text-red-700 dark:text-red-400 font-medium mb-1">Current Volatility: {(rebalanceState.vol_before * 100).toFixed(1)}%</p>
-                        <p className="text-xs text-muted-foreground">Target: {(user?.target_volatility || 0.10) * 100}%</p>
+
+                {isAnalysingRisk ? (
+                    /* Loading State */
+                    <div className="flex-1 flex flex-col items-center justify-center py-10 gap-3">
+                        <div className="relative w-12 h-12">
+                            <div className="absolute inset-0 rounded-full border-2 border-border" />
+                            <div className="absolute inset-0 rounded-full border-2 border-t-purple-500 border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+                        </div>
+                        <p className="text-sm font-medium text-muted-foreground">Gemini is analysing your portfolio…</p>
+                        <p className="text-xs text-muted-foreground/60">This takes about 10–20 seconds</p>
+                    </div>
+                ) : riskAnalysis ? (
+                    /* Result State */
+                    <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
+                        {/* Sectioned Text */}
+                        {(() => {
+                            const sections: { heading: string; content: string }[] = [];
+                            const sectionOrder = [
+                                'OVERALL_ASSESSMENT', 'CONCENTRATION_RISK',
+                                'VOLATILITY_ANALYSIS', 'DIVERSIFICATION',
+                                'KEY_RISKS', 'RECOMMENDATIONS'
+                            ];
+                            const sectionLabels: Record<string, string> = {
+                                'OVERALL_ASSESSMENT': 'Overall Assessment',
+                                'CONCENTRATION_RISK': 'Concentration Risk',
+                                'VOLATILITY_ANALYSIS': 'Volatility',
+                                'DIVERSIFICATION': 'Diversification',
+                                'KEY_RISKS': '⚠ Key Risks',
+                                'RECOMMENDATIONS': '✦ Recommendations',
+                            };
+                            // Parse sections from text
+                            const text = riskAnalysis.text.replace(/^RISK_SCORE:.*$/m, '').trim();
+                            const regex = /^(OVERALL_ASSESSMENT|CONCENTRATION_RISK|VOLATILITY_ANALYSIS|DIVERSIFICATION|KEY_RISKS|RECOMMENDATIONS):?\s*$/gm;
+                            const matches = [...text.matchAll(regex)];
+                            matches.forEach((match, i) => {
+                                const start = match.index! + match[0].length;
+                                const end = matches[i + 1]?.index ?? text.length;
+                                sections.push({
+                                    heading: sectionLabels[match[1]] || match[1],
+                                    content: text.slice(start, end).trim()
+                                });
+                            });
+                            // Fallback: if parsing fails, show raw text
+                            if (sections.length === 0) {
+                                return (
+                                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
+                                        {riskAnalysis.text.replace(/^RISK_SCORE:.*$/m, '').trim()}
+                                    </p>
+                                );
+                            }
+                            return sections.map(({ heading, content }) => (
+                                <div key={heading} className="space-y-1.5">
+                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${
+                                        heading.startsWith('⚠') ? 'text-amber-500' :
+                                        heading.startsWith('✦') ? 'text-purple-400' :
+                                        'text-muted-foreground'
+                                    }`}>{heading}</h4>
+                                    <div className="text-sm text-foreground/80 leading-relaxed">
+                                        {content.split('\n').map((line, i) => {
+                                            const trimmed = line.trim();
+                                            if (!trimmed) return null;
+                                            if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+                                                return (
+                                                    <div key={i} className="flex gap-2 mt-1">
+                                                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                                                        <span>{trimmed.slice(2)}</span>
+                                                    </div>
+                                                );
+                                            }
+                                            return <p key={i} className={i > 0 ? 'mt-1' : ''}>{trimmed}</p>;
+                                        })}
+                                    </div>
+                                </div>
+                            ));
+                        })()}
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between pt-3 border-t border-border mt-auto">
+                            <p className="text-xs text-muted-foreground/60">
+                                Generated {new Date(riskAnalysis.generated_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <button
+                                onClick={handleGenerateRisk}
+                                disabled={isAnalysingRisk}
+                                className="text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
+                            >
+                                <Brain size={12} /> Refresh
+                            </button>
+                        </div>
                     </div>
                 ) : (
-                    <div className="p-4 bg-muted/50 border border-border rounded-lg mb-6">
-                         <p className="text-sm text-muted-foreground">Run "Check Balance" to analyze portfolio risk.</p>
+                    /* Empty State */
+                    <div className="flex-1 flex flex-col items-center justify-center py-10 gap-4 text-center">
+                        <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                            <Brain size={26} className="text-purple-400" />
+                        </div>
+                        <div>
+                            <p className="font-medium mb-1">AI Risk Analysis</p>
+                            <p className="text-xs text-muted-foreground max-w-[200px]">
+                                Get a detailed Gemini-powered risk breakdown of your portfolio
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleGenerateRisk}
+                            disabled={!holdings || holdings.length === 0}
+                            className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-md shadow-purple-500/20 flex items-center gap-2 disabled:opacity-50"
+                        >
+                            <Brain size={15} />
+                            Analyse Risk with AI
+                        </button>
                     </div>
                 )}
-                
-                <h4 className="text-sm font-semibold mb-3 text-muted-foreground">High Risk Holdings</h4>
-                <div className="space-y-3">
-                    {riskyStocks.map((stock) => (
-                        <div key={stock.symbol} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
-                             <div className="flex items-center gap-3">
-                                <AlertTriangle size={16} className="text-orange-500" />
-                                <div>
-                                    <p className="font-bold text-sm">{stock.symbol}</p>
-                                    <p className="text-xs text-muted-foreground">{stock.reason}</p>
-                                </div>
-                             </div>
-                             <span className="text-xs font-bold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-1 rounded">
-                                 {stock.riskLevel}
-                             </span>
-                        </div>
-                    ))}
-                </div>
              </div>
 
         </div>
