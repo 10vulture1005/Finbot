@@ -17,10 +17,10 @@ interface FloatingNavbarProps {
 
 export default function FloatingNavbar({
   navItems = [
-    { label: "Products", href: "#1" },
-    { label: "Features", href: "#2" },
-    { label: "Pricing", href: "#3" },
-    { label: "Docs", href: "#4" },
+    { label: "About Us", href: "#about" },
+    { label: "Features", href: "#features" },
+    { label: "Pricing", href: "#pricing" },
+    { label: "FAQ", href: "#faq" },
   ],
   showCTA = true,
   className = "",

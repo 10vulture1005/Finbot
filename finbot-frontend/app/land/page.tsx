@@ -43,14 +43,14 @@ export default function Landing() {
         
         <div className="h-full overflow-y-auto overflow-x-hidden md:h-screen md:snap-y md:snap-mandatory md:overflow-y-scroll">
          
-          <section className="min-h-screen md:snap-start" ref={heroRef}>
+          <section id="hero" className="min-h-screen md:snap-start" ref={heroRef}>
             <HeroWithStats />
           </section>
-          <section className="min-h-screen md:snap-start">
+          <section id="about" className="min-h-screen md:snap-start">
 
             <AboutSection />
           </section>
-          <section className="min-h-screen md:snap-start">
+          <section id="features" className="min-h-screen md:snap-start">
             <Advantage />
           </section>
 
@@ -58,11 +58,11 @@ export default function Landing() {
             <Performance />
           </section>
 
-          <section className="min-h-screen md:snap-start">
+          <section id="pricing" className="min-h-screen md:snap-start">
             <Pricing />
           </section>
 
-          <section className="min-h-screen md:snap-start">
+          <section id="faq" className="min-h-screen md:snap-start">
             <FAQAccordion />
           </section>
 

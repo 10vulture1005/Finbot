@@ -320,7 +320,7 @@ interface HeroWithStatsProps {
   heading?: React.ReactNode;
   subheading?: React.ReactNode;
   ctaPrimary?: string;
-  ctaSecondary?: string;
+  // ctaSecondary?: string;
 }
 
 export default function HeroWithStats({
@@ -334,7 +334,7 @@ export default function HeroWithStats({
   ),
   subheading = "Empowering investors with AI-driven innovation, trust, and seamless portfolio management experiences.",
   ctaPrimary = "See trial",
-  ctaSecondary = "Learn more",
+  // ctaSecondary = "Learn more",
 }: HeroWithStatsProps) {
   
   const router = useRouter();
@@ -441,9 +441,9 @@ export default function HeroWithStats({
               <button onClick={() => router.push("/userspace/dashboard")} className="bg-white text-black px-8 py-3.5 rounded-full font-semibold text-lg hover:bg-gray-100 transform hover:scale-105 transition-all shadow-sm hover:shadow-md shadow-cyan-500/10">
                 {ctaPrimary}
               </button>
-              <button className="px-8 py-3.5 rounded-full font-semibold text-lg text-white border border-white/20 hover:bg-white/5 backdrop-blur-sm transition-all hover:border-white/40">
+              {/* <button className="px-8 py-3.5 rounded-full font-semibold text-lg text-white border border-white/20 hover:bg-white/5 backdrop-blur-sm transition-all hover:border-white/40">
                 {ctaSecondary}
-              </button>
+              </button> */}
             </motion.div>
         </div>
 
