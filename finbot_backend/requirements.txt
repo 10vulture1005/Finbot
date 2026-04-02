@@ -23,5 +23,5 @@ google-generativeai==0.8.6
 yfinance==0.2.40
 scikit-learn
 xgboost
-pandas_ta
+git+https://github.com/twopirllc/pandas-ta.git@development
 # torch --index-url https://download.pytorch.org/whl/cpu
