@@ -1,10 +1,9 @@
 from typing import Generic, TypeVar, Optional, Any
 from pydantic import BaseModel
-from pydantic.generics import GenericModel
 
 T = TypeVar("T")
 
-class APIResponse(GenericModel, Generic[T]):
+class APIResponse(BaseModel, Generic[T]):
     """
     Standard API Response Wrapper.
     """
