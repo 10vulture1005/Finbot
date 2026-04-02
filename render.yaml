@@ -3,6 +3,7 @@ services:
     name: finbot-backend
     env: docker
     dockerfilePath: finbot_backend/Dockerfile
+    dockerContext: .
     plan: free # Can upgrade to standard or pro if 512MB RAM isn't enough for the ML models
     region: ohio
     envVars:
