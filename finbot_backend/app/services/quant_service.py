@@ -1,4 +1,4 @@
-    from app.quant_engine.pipeline import QuantPipeline
+from app.quant_engine.pipeline import QuantPipeline
 from app.models.user import User
 from sqlalchemy.orm import Session
 import logging
@@ -7,18 +7,13 @@ import numpy as np
 import os
 import sys
 
-# Import the portfolio-rebalancer classes/functions
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-portfolio_rebalancer_path = os.path.join(project_root, "portfolio-rebalancer")
-sys.path.append(portfolio_rebalancer_path)
-
+# Import the portfolio-rebalancer classes/functions from within the app
 try:
-    from portfolio import Portfolio, Asset
-    from rebalance import full_rebalance
+    from app.rebalancer.portfolio import Portfolio, Asset
+    from app.rebalancer.core_rebalance import full_rebalance
 except ImportError as e:
     logger = logging.getLogger(__name__)
-    logger.error(f"Failed to import from portfolio-rebalancer in quant_service. Path: {portfolio_rebalancer_path}")
+    logger.error(f"Failed to import from internal portfolio module: {e}")
     raise
     
 logger = logging.getLogger(__name__)
@@ -40,7 +35,7 @@ class QuantService:
         """
         from app.models.portfolio import PortfolioStock
         import yfinance as yf
-            from app.rebalancer.rebalance.mpt_solver import MPTSolver
+        from app.rebalancer.rebalance.mpt_solver import MPTSolver
         
         holdings = db.query(PortfolioStock).filter_by(user_id=user.id).all()
         

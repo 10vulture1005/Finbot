@@ -12,28 +12,18 @@ import os
 import sys
 import yfinance as yf
 
-# Get the absolute path of the directory containing this file (app/services/)
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# Navigate up to the project root (Finbot folder): app/services -> app -> finbot_backend -> Finbot
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-# Path to portfolio-rebalancer
-portfolio_rebalancer_path = os.path.join(project_root, "portfolio-rebalancer")
-
-sys.path.append(portfolio_rebalancer_path)
-
+# Import from the self-contained app.rebalancer module
 try:
-    from portfolio import Portfolio, Asset
-    from rebalance import full_rebalance
+    from app.rebalancer.portfolio import Portfolio, Asset
+    from app.rebalancer.core_rebalance import full_rebalance
 except ImportError as e:
     logger = logging.getLogger(__name__)
-    logger.error(f"Failed to import from portfolio-rebalancer. Path added: {portfolio_rebalancer_path}. Error: {e}")
+    logger.error(f"Failed to import from internal portfolio module: {e}")
     raise
     
 # Import MPTSolver from rebalancer engine
-mpt_solver_path = os.path.join(current_dir, "..", "rebalancer", "rebalance")
-sys.path.append(os.path.abspath(mpt_solver_path))
 try:
-    from mpt_solver import MPTSolver
+    from app.rebalancer.rebalance.mpt_solver import MPTSolver
 except ImportError as e:
     logger = logging.getLogger(__name__)
     logger.error(f"Failed to import MPTSolver: {e}")
