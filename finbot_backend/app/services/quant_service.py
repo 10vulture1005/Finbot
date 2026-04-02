@@ -1,4 +1,4 @@
-from app.quant_engine.pipeline import QuantPipeline
+    from app.quant_engine.pipeline import QuantPipeline
 from app.models.user import User
 from sqlalchemy.orm import Session
 import logging
@@ -40,7 +40,7 @@ class QuantService:
         """
         from app.models.portfolio import PortfolioStock
         import yfinance as yf
-        from app.rebalancer.rebalance.mpt_solver import MPTSolver
+            from app.rebalancer.rebalance.mpt_solver import MPTSolver
         
         holdings = db.query(PortfolioStock).filter_by(user_id=user.id).all()
         

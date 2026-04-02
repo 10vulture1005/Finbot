@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: finbot-backend
+    env: docker
+    rootDir: finbot_backend
+    plan: free # Can upgrade to standard or pro if 512MB RAM isn't enough for the ML models
+    region: ohio
+    envVars:
+      - key: PORT
+        value: 8000
