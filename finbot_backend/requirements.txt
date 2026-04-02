@@ -24,4 +24,3 @@ yfinance==0.2.40
 scikit-learn
 xgboost
 pandas_ta
-torch --index-url https://download.pytorch.org/whl/cpu
