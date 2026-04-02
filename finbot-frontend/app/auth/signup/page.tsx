@@ -31,7 +31,7 @@ const handleSignUp = async (e: React.FormEvent) => {
 
   try {
     // 👇 use centralized api.ts
-    const res = await api.post("/api/auth/signup-init", {
+    const res = await api.post("/auth/signup-init", {
       name,
       email,
       password,
