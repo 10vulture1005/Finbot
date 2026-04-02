@@ -22,12 +22,7 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://finbot-flame-gamma.vercel.app",
-    ],
-    allow_origin_regex=r"https://finbot-.*\.vercel\.app",
+    allow_origin_regex=r"https?://(localhost:3000|127\.0\.0\.1:3000|finbot-.*\.vercel\.app)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
