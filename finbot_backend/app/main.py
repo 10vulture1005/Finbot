@@ -19,6 +19,7 @@ app = FastAPI(
     title="AI SaaS Backend",
     version="1.0.0",
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 app.add_middleware(
     CORSMiddleware,
@@ -33,4 +34,4 @@ app.include_router(router, prefix="/api/v1")
 
 @app.get("/")
 def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "build": "v3_regex_test"}
