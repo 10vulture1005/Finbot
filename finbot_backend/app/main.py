@@ -25,6 +25,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",  # Next.js / React
         "http://127.0.0.1:3000",
+        "https://finbot-flame-gamma.vercel.app"
     ],
     allow_credentials=True,  # IMPORTANT (for cookies / auth)
     allow_methods=["*"],
