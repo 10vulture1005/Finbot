@@ -30,4 +30,4 @@ app.include_router(router, prefix="/api/v1")
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "vercel": True}
+    return {"status": "ok", "build": "v3_regex_test", "root": True}
