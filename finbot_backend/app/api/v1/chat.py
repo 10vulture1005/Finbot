@@ -212,7 +212,7 @@ async def chat_endpoint(request: Request, db: Session = Depends(get_db)):
     if messages:
         user_message = messages[-1].get("content", "")
     else:
-        prompt_data = body.get("prompt")
+        prompt_data = body.get("prompt") or body.get("message")
         if isinstance(prompt_data, dict):
             user_message = prompt_data.get("content", "")
         elif isinstance(prompt_data, str):
@@ -243,6 +243,11 @@ async def chat_endpoint(request: Request, db: Session = Depends(get_db)):
     if user_message:
         conversations[thread_id].append({"role": "user", "content": user_message})
         save_conversations()
+    else:
+        print("[chat] Warning: No user message found in request body.", body)
+        async def mock_generator():
+            yield ""
+        return StreamingResponse(mock_generator(), media_type="text/plain")
 
     async def event_generator():
         current_history = conversations[thread_id]
