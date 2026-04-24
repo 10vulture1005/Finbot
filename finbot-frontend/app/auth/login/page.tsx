@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import FloatingNavbar from '../../land/navbar';
 import api from '@/app/services/api';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { auth } from '@/app/services/firebaseConfig';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { TokenResponse } from '@/app/types/models';
 import { toast } from 'sonner';
 
@@ -29,11 +32,13 @@ const LoginForm: React.FC = () => {
           if (access_token) {
             if (rememberMe) {
               localStorage.setItem("access_token", access_token);
-              // alert("DEBUG: Saved token to LocalStorage");
             } else {
               sessionStorage.setItem("access_token", access_token);
-              // alert("DEBUG: Saved token to SessionStorage");
             }
+             
+            // 👇 Log into Firebase
+            await signInWithEmailAndPassword(auth, email, password);
+
              // ✅ redirect
             router.push("/dashboard");
           } else {
@@ -164,9 +169,9 @@ const LoginForm: React.FC = () => {
             <div className="mt-10 text-center">
               <p className="text-base text-gray-600">
                 Not a member yet?{' '}
-                <a href="#" className="text-blue-600 font-semibold hover:text-blue-700">
+                <Link href="/auth/signup" className="text-blue-600 font-semibold hover:text-blue-700">
                   Sign up
-                </a>
+                </Link>
               </p>
             </div>
           </div>

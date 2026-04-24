@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import FloatingNavbar from '../../land/navbar';
 import api from '@/app/libs/api';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { auth } from '@/app/services/firebaseConfig';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { log } from 'console';
 import { toast } from 'sonner';
 
@@ -30,7 +33,7 @@ const handleSignUp = async (e: React.FormEvent) => {
   
 
   try {
-    // 👇 use centralized api.ts
+    // 👇 use centralized api.ts for custom backend
     const res = await api.post("/auth/signup-init", {
       name,
       email,
@@ -39,18 +42,18 @@ const handleSignUp = async (e: React.FormEvent) => {
 
     const { access_token } = res.data;
     console.log(res.data)
-    // // ⚠️ Only if backend returns token in response
-    // if (access_token) {
-    //   localStorage.setItem("access_token", access_token);
-    // }
+    
+    // 👇 Also create user in Firebase for chat persistence
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(userCredential.user, { displayName: name });
 
     // ✅ redirect after successful signup
     router.push("/payement");
     } catch (err: any) {
     console.log(
-      err?.response?.data?.detail || "Sign up failed"
+      err?.response?.data?.detail || err?.message || "Sign up failed"
     );
-    toast.error(err?.response?.data?.detail || "Sign up failed")
+    toast.error(err?.response?.data?.detail || err?.message || "Sign up failed")
   }
 };
 
@@ -207,9 +210,9 @@ const handleSignUp = async (e: React.FormEvent) => {
             <div className="mt-6 text-center">
               <p className="text-base text-gray-600">
                 Already have an account?{' '}
-                <a href="#" className="text-blue-600 font-semibold hover:text-blue-700">
+                <Link href="/auth/login" className="text-blue-600 font-semibold hover:text-blue-700">
                   Login
-                </a>
+                </Link>
               </p>
             </div>
           </div>

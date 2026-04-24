@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface NavItem {
   label: string;
@@ -17,16 +18,24 @@ interface FloatingNavbarProps {
 
 export default function FloatingNavbar({
   navItems = [
-    { label: "About Us", href: "#about" },
-    { label: "Features", href: "#features" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "FAQ", href: "#faq" },
+    { label: "About Us", href: "/#about" },
+    { label: "Features", href: "/#features" },
+    { label: "Pricing", href: "/#pricing" },
+    { label: "FAQ", href: "/#faq" },
   ],
   showCTA = true,
   className = "",
   isDark = false,
 }: FloatingNavbarProps) {
   const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+    if (token) {
+      setIsLoggedIn(true);
+    }
+  }, []);
 
   const handleLogin = () => {
     router.push("/auth/login");
@@ -34,6 +43,10 @@ export default function FloatingNavbar({
 
   const handleSignup = () => {
     router.push("/auth/signup");
+  };
+
+  const handleDashboard = () => {
+    router.push("/dashboard");
   };
 
   const textColorClass = isDark ? "text-gray-900 hover:text-gray-600" : "text-white hover:text-gray-300";
@@ -78,13 +91,13 @@ export default function FloatingNavbar({
             {/* Desktop Nav Items */}
             <div className="hidden md:flex items-center gap-8">
               {navItems.map((item) => (
-                <a
+                <Link
                   key={item.href}
                   href={item.href}
                   className={`${textColorClass} font-medium transition-colors`}
                 >
                   {item.label}
-                </a>
+                </Link>
               ))}
             </div>
 
@@ -110,12 +123,20 @@ export default function FloatingNavbar({
             {/* CTA Section */}
             {showCTA && (
               <div className="flex items-center gap-4">
-                <button className={`font-medium transition-colors ${ctaBtnLoginColor}`} onClick={handleLogin}>
-                  Login
-                </button>
-                <button onClick={handleSignup} className={signUpBtnClass}>
-                  Sign up
-                </button>
+                {isLoggedIn ? (
+                  <button onClick={handleDashboard} className={signUpBtnClass}>
+                    Dashboard
+                  </button>
+                ) : (
+                  <>
+                    <button className={`font-medium transition-colors ${ctaBtnLoginColor}`} onClick={handleLogin}>
+                      Login
+                    </button>
+                    <button onClick={handleSignup} className={signUpBtnClass}>
+                      Sign up
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
