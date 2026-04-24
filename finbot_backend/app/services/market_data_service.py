@@ -16,8 +16,6 @@ class MarketDataService:
         """
         logger.info(f"Syncing market data for {ticker}...")
         
-        import requests
-        
         # 1. Fetch
         # Add suffix if needed, similar to data_loader heuristics
         yf_ticker = ticker
@@ -25,11 +23,7 @@ class MarketDataService:
              yf_ticker = f"{ticker}.NS"
              
         try:
-            session = requests.Session()
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            })
-            df = yf.download(yf_ticker, period=period, interval="1d", progress=False, group_by='ticker', auto_adjust=False, session=session)
+            df = yf.download(yf_ticker, period=period, interval="1d", progress=False, group_by='ticker', auto_adjust=False)
             if df.empty:
                 logger.warning(f"No data found for {ticker}")
                 return False
