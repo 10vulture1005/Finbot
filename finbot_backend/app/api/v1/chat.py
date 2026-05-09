@@ -309,3 +309,82 @@ async def init_chat_thread(request: Request, db: Session = Depends(get_db)):
 async def get_chat_history(thread_id: str):
     history = conversations.get(thread_id, [])
     return [msg for msg in history if msg.get("role") != "system"]
+
+
+# ─── Groq-Powered Portfolio Chat (Streaming) ─────────────────────────────────
+
+@router.post("/chat/groq-stream")
+async def groq_chat_stream(request: Request, db: Session = Depends(get_db)):
+    """
+    Groq-powered streaming chat with portfolio context.
+    Separate from the Thesys SDK chat above.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    user_message = ""
+    messages = body.get("messages", [])
+    if messages:
+        user_message = messages[-1].get("content", "")
+    else:
+        user_message = body.get("message", body.get("prompt", ""))
+
+    if not user_message:
+        async def empty():
+            yield ""
+        return StreamingResponse(empty(), media_type="text/plain")
+
+    # Resolve user and build portfolio context
+    user = resolve_user(request, db)
+    if user:
+        try:
+            holdings = get_portfolio(db, user.id)
+            system_prompt = build_portfolio_system_prompt(holdings)
+        except Exception:
+            system_prompt = build_portfolio_system_prompt([])
+    else:
+        system_prompt = build_portfolio_system_prompt([])
+
+    # Build conversation history (only last 10 messages for context window)
+    chat_messages = [{"role": "system", "content": system_prompt}]
+    for msg in messages[-10:]:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if role in ("user", "assistant") and content:
+            chat_messages.append({"role": role, "content": content})
+
+    # Ensure the last message is the current user message
+    if not chat_messages or chat_messages[-1].get("content") != user_message:
+        chat_messages.append({"role": "user", "content": user_message})
+
+    async def groq_generator():
+        try:
+            from groq import Groq
+            from app.core.config import settings
+
+            if not settings.GROQ_API_KEY:
+                yield "Error: GROQ_API_KEY is not configured."
+                return
+
+            groq_client = Groq(api_key=settings.GROQ_API_KEY)
+            stream = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=chat_messages,
+                stream=True,
+                temperature=0.5,
+                max_tokens=2048,
+            )
+
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    yield content
+                    await asyncio.sleep(0.005)
+
+        except Exception as e:
+            print(f"[groq-chat] Error: {e}")
+            yield f"\n\nError: {str(e)}"
+
+    return StreamingResponse(groq_generator(), media_type="text/plain")
