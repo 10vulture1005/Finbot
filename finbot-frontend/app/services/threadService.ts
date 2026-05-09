@@ -147,21 +147,12 @@ export async function getUIThreadMessages(threadId: string) {
     return snapshot.docs.map(docSnap => {
       const data = docSnap.data();
       const content = data.content || "";
-      let messageField: any;
-      
-      if (data.role === "assistant") {
-        // SDK expects assistant messages as array of text objects
-        messageField = [{ type: "text", text: content }];
-      } else {
-        // SDK expects user messages as plain strings
-        messageField = content;
-      }
 
+      // SDK Message type: { id: string; role: 'user' | 'assistant'; content?: string }
       return {
         id: docSnap.id,
         role: data.role || "user",
-        type: data.role === "user" ? "prompt" : "text",
-        message: messageField
+        content,
       };
     });
   } catch (error) {
