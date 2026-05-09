@@ -98,8 +98,11 @@ export async function addMessages(threadId: string, prompt: any, assistantMessag
   const threadRef = doc(db, "threads", threadId);
   const now = new Date().toISOString();
 
-  // Extract user message content for thread title
-  const userContent = prompt.content || (typeof prompt === "string" ? prompt : "");
+  // Extract user message content for thread title and strip thesys XML tags
+  let userContent = prompt.content || (typeof prompt === "string" ? prompt : "");
+  // Thesys SDK wraps messages in <content thesys="true">...</content>
+  userContent = userContent.replace(/<content[^>]*>/g, "").replace(/<\/content>/g, "").trim();
+
   const title = userContent.substring(0, 50) + (userContent.length > 50 ? "..." : "") || "New Chat";
 
   // Ensure the thread exists and update its timestamp + title
@@ -165,7 +168,7 @@ export async function getLLMThreadMessages(threadId: string) {
   const uiMessages = await getUIThreadMessages(threadId);
   return uiMessages.map((msg: any) => ({
     role: msg.role,
-    content: typeof msg.message === "string" ? msg.message : (msg.message?.[0]?.text || "")
+    content: msg.content
   }));
 }
 
