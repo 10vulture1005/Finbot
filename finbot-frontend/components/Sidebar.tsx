@@ -17,6 +17,10 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  FlaskConical,
+  Bell,
+  Sparkles,
+  Receipt,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -30,9 +34,12 @@ export default function Sidebar() {
     { label: "Holdings", href: "/dashboard/holdings", icon: PieChart },
     { label: "Risk & Health", href: "/dashboard/risk", icon: Activity },
     { label: "AI Insights", href: "/dashboard/insights", icon: Brain },
+    { label: "Analytics Lab", href: "/dashboard/analytics", icon: FlaskConical },
     { label: "Stock Analysis", href: "/dashboard/analysis", icon: LineChart },
-    // { label: "Goals & Planning", href: "/dashboard/goals", icon: Goal },
+    { label: "Tax Harvest", href: "/dashboard/tax-harvest", icon: Receipt },
+    { label: "Price Alerts", href: "/dashboard/alerts", icon: Bell },
     { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquare },
+    { label: "Groq Chat", href: "/dashboard/chat-ai", icon: Sparkles },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 

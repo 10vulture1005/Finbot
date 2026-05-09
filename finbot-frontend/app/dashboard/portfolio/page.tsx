@@ -17,7 +17,9 @@ import {
   Archive,
   Plus,
   X,
-  Brain
+  Brain,
+  Newspaper,
+  Zap
 } from "lucide-react";
 import {
   PieChart,
@@ -145,10 +147,40 @@ export default function PortfolioPage() {
   const [riskAnalysis, setRiskAnalysis] = React.useState<RiskAnalysisResult | null>(null);
   const [isAnalysingRisk, setIsAnalysingRisk] = React.useState(false);
 
+  // --- Market Regime State ---
+  const [regime, setRegime] = React.useState<any>(null);
+
+  // --- News State ---
+  const [newsSymbol, setNewsSymbol] = React.useState<string | null>(null);
+  const [newsData, setNewsData] = React.useState<any>(null);
+  const [newsLoading, setNewsLoading] = React.useState(false);
+
   // Load cached risk analysis on mount
   React.useEffect(() => {
     getRiskAnalysis().then((res) => { if (res) setRiskAnalysis(res); }).catch(() => {});
   }, []);
+
+  // Fetch market regime
+  React.useEffect(() => {
+    if (holdings && holdings.length > 0) {
+      import("@/app/services/api").then(m => m.default.get("/quant/regime")).then((res: any) => {
+        if (res?.success && res?.data) setRegime(res.data);
+      }).catch(() => {});
+    }
+  }, [holdings?.length]);
+
+  // Fetch news for a symbol
+  const fetchNews = async (symbol: string) => {
+    if (newsSymbol === symbol) { setNewsSymbol(null); return; }
+    setNewsSymbol(symbol);
+    setNewsLoading(true);
+    setNewsData(null);
+    try {
+      const res = await import("@/app/services/api").then(m => m.default.get(`/market/news/${symbol.replace('.NS','').replace('.BO','')}`));
+      if ((res as any)?.success && (res as any)?.data) setNewsData((res as any).data);
+    } catch (e) { console.error(e); }
+    finally { setNewsLoading(false); }
+  };
 
   const handleGenerateRisk = async () => {
     setIsAnalysingRisk(true);
@@ -158,12 +190,12 @@ export default function PortfolioPage() {
       if (data?.success && data?.data) {
         setRiskAnalysis(data.data);
         if (data.data._quota_notice || data.message?.includes("quota") || data.message?.includes("cached")) {
-          toast.warning(data.message || "Showing cached analysis — Gemini quota exhausted for today.");
+          toast.warning(data.message || "Showing cached analysis — Groq quota exhausted for today.");
         }
       } else {
         const err = data?.error || "Failed to generate risk analysis";
         if (err.includes("quota") || err.includes("exhausted")) {
-          toast.warning("⚠ Gemini quota exhausted for today. Try again tomorrow or visit https://aistudio.google.com to add billing.");
+          toast.warning("⚠ Groq quota exhausted for today. Try again tomorrow or visit https://console.groq.com to manage your API key.");
         } else {
           toast.error(err);
         }
@@ -430,6 +462,37 @@ export default function PortfolioPage() {
             </div>
         )}
 
+        {/* Market Regime Banner */}
+        {regime && (
+          <div className={`rounded-xl border p-4 flex items-center gap-4 ${
+            regime.color === 'green' ? 'bg-emerald-500/10 border-emerald-500/20' :
+            regime.color === 'red' ? 'bg-red-500/10 border-red-500/20' :
+            regime.color === 'orange' ? 'bg-amber-500/10 border-amber-500/20' :
+            'bg-blue-500/10 border-blue-500/20'
+          }`}>
+            <div className={`p-2.5 rounded-lg ${
+              regime.color === 'green' ? 'bg-emerald-500/20 text-emerald-500' :
+              regime.color === 'red' ? 'bg-red-500/20 text-red-500' :
+              regime.color === 'orange' ? 'bg-amber-500/20 text-amber-500' :
+              'bg-blue-500/20 text-blue-500'
+            }`}>
+              <Zap size={20} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                  regime.color === 'green' ? 'bg-emerald-500/20 text-emerald-500' :
+                  regime.color === 'red' ? 'bg-red-500/20 text-red-500' :
+                  regime.color === 'orange' ? 'bg-amber-500/20 text-amber-500' :
+                  'bg-blue-500/20 text-blue-500'
+                }`}>{regime.regime}</span>
+                <span className="text-xs text-muted-foreground">Vol: {regime.metrics?.volatility}% · DD: {regime.metrics?.drawdown}% · Mom: {regime.metrics?.momentum_30d}%</span>
+              </div>
+              <p className="text-sm text-foreground/80">{regime.description}</p>
+            </div>
+          </div>
+        )}
+
         {/* Top Metrics Row */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
              <MetricCard label="Total Investment" value={`₹${totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
@@ -607,7 +670,7 @@ export default function PortfolioPage() {
                             <div className="absolute inset-0 rounded-full border-2 border-border" />
                             <div className="absolute inset-0 rounded-full border-2 border-t-purple-500 border-r-transparent border-b-transparent border-l-transparent animate-spin" />
                         </div>
-                        <p className="text-sm font-medium text-muted-foreground">Gemini is analysing your portfolio…</p>
+                        <p className="text-sm font-medium text-muted-foreground">Groq is analysing your portfolio…</p>
                         <p className="text-xs text-muted-foreground/60">This takes about 10–20 seconds</p>
                     </div>
                 ) : riskAnalysis ? (
@@ -698,7 +761,7 @@ export default function PortfolioPage() {
                         <div>
                             <p className="font-medium mb-1">AI Risk Analysis</p>
                             <p className="text-xs text-muted-foreground max-w-[200px]">
-                                Get a detailed Gemini-powered risk breakdown of your portfolio
+                                Get a detailed Groq-powered risk breakdown of your portfolio
                             </p>
                         </div>
                         <button
@@ -713,6 +776,56 @@ export default function PortfolioPage() {
                 )}
              </div>
 
+        </div>
+
+        {/* Per-Stock News Feed */}
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+            <Newspaper size={20} className="text-muted-foreground" />
+            Stock News
+          </h3>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(holdings || []).map((h) => (
+              <button
+                key={h.symbol}
+                onClick={() => fetchNews(h.symbol)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  newsSymbol === h.symbol
+                    ? 'bg-primary/10 text-primary border-primary/30'
+                    : 'bg-muted/50 text-muted-foreground border-border hover:border-primary/20'
+                }`}
+              >
+                {h.symbol.replace('.NS','').replace('.BO','')}
+              </button>
+            ))}
+          </div>
+          {newsLoading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          )}
+          {newsData && newsData.news && newsData.news.length > 0 ? (
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {newsData.news.slice(0, 8).map((article: any, i: number) => (
+                <a
+                  key={i}
+                  href={article.link || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-3 rounded-lg border border-border/50 hover:border-primary/20 hover:bg-muted/20 transition-all"
+                >
+                  <p className="text-sm font-medium mb-1 line-clamp-2">{article.title || article.headline}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-1">
+                    {article.source || ''} {article.date ? `· ${article.date}` : ''}
+                  </p>
+                </a>
+              ))}
+            </div>
+          ) : newsSymbol && !newsLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No news available for {newsSymbol.replace('.NS','')}</p>
+          ) : !newsSymbol ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Select a stock above to view recent news</p>
+          ) : null}
         </div>
 
 
