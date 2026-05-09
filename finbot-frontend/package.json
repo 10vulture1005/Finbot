@@ -12,6 +12,7 @@
     "@crayonai/react-core": "^0.7.6",
     "@crayonai/react-ui": "^0.9.10",
     "@crayonai/stream": "^0.6.4",
+    "@firebase/auth": "^1.13.1",
     "@thesysai/genui-sdk": "^0.7.15",
     "axios": "^1.16.0",
     "firebase": "^12.12.1",
