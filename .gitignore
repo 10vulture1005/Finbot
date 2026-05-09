@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+finbot_backend/app/db/__pycache__/
+finbot_backend/app/models/__pycache__/
+*.pyc

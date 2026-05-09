@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     
     # External APIs
     THESYS_API_KEY: str | None = None
-    GEMINI_API_KEY: str | None = None
+    GROQ_API_KEY: str | None = None
     NEWS_API: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

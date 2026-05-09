@@ -244,17 +244,17 @@ class ExecutionLogic:
 
     def generate_ai_explanation(self, current_weights, new_weights, metrics, strategy):
         """
-        Uses Google Gemini to generate a natural language explanation of the rebalance.
+        Uses Groq (llama-3.3-70b-versatile) to generate a natural language
+        explanation of the rebalance decision.
         """
         try:
-            import google.generativeai as genai
-            
-            api_key = os.getenv("GEMINI_API_KEY")
+            from groq import Groq
+
+            api_key = os.getenv("GROQ_API_KEY")
             if not api_key:
                 return f"Rebalanced based on '{strategy}'. (API Key missing for explanation)"
 
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-pro')
+            client = Groq(api_key=api_key)
 
             # Prepare context for LLM
             prompt = f"""
@@ -273,10 +273,18 @@ class ExecutionLogic:
             
             Explain WHY this change optimizes the portfolio according to the {strategy} strategy. Keep it under 3 sentences.
             """
-            
-            response = model.generate_content(prompt)
-            return response.text.strip() if response.text else "No explanation generated."
-        
+
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "You are a concise, professional portfolio manager."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.4,
+                max_tokens=256,
+            )
+            return completion.choices[0].message.content.strip()
+
         except Exception as e:
             print(f"AI Generation Failed: {e}")
             return f"The portfolio was rebalanced to align with the {strategy} strategy, optimizing for risk-adjusted returns."
