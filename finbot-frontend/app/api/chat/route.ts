@@ -30,10 +30,7 @@ export async function POST(req: NextRequest) {
   let rawText = "";
   try {
     rawText = await req.text();
-    console.log("=========================================");
-    console.log(`[API CHAT] Intercepted Request: ${req.method} ${req.url}`);
-    console.log("[API CHAT] Raw Body Payload: ", rawText);
-    console.log("=========================================");
+    console.log("[API CHAT] Intercepted POST, body length:", rawText.length);
     bodyData = rawText ? JSON.parse(rawText) : {};
   } catch(e) {
     console.log("[API CHAT] Failed to parse JSON:", e);
@@ -41,8 +38,6 @@ export async function POST(req: NextRequest) {
   }
 
   // The Thesys SDK sends an empty POST on mount to initialize.
-  // Intercept it here and return a proper empty chunked stream so the SDK
-  // doesn't get confused by the backend's fallback response.
   if (!rawText.trim()) {
     console.log("[API CHAT] Empty SDK ping — returning empty stream.");
     const emptyStream = new ReadableStream({
@@ -56,12 +51,31 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const threadId = req.headers.get('x-finbot-thread-id') || bodyData.threadId || "default";
-  
-  // Extract user prompt
+  // ─── Resolve threadId ──────────────────────────────────────────────────
+  // The SDK sends threadId in various places depending on version:
+  // 1. x-finbot-thread-id header (custom)
+  // 2. bodyData.threadId (SDK default)
+  // 3. URL query param
+  const threadId =
+    req.headers.get('x-finbot-thread-id') ||
+    bodyData.threadId ||
+    new URL(req.url).searchParams.get('threadId') ||
+    "default";
+
+  console.log(`[API CHAT] threadId=${threadId}`);
+
+  // ─── Extract user prompt ───────────────────────────────────────────────
   let prompt: any = { role: "user", content: "" };
   if (bodyData.messages && bodyData.messages.length > 0) {
-    prompt = bodyData.messages[bodyData.messages.length - 1];
+    const lastMsg = bodyData.messages[bodyData.messages.length - 1];
+    prompt = {
+      role: lastMsg.role || "user",
+      content: typeof lastMsg.content === "string"
+        ? lastMsg.content
+        : typeof lastMsg.message === "string"
+          ? lastMsg.message
+          : lastMsg.content || ""
+    };
   } else if (bodyData.prompt) {
     prompt = typeof bodyData.prompt === "string" ? { role: "user", content: bodyData.prompt } : bodyData.prompt;
   } else if (bodyData.message) {
@@ -70,22 +84,28 @@ export async function POST(req: NextRequest) {
 
   const headers = buildForwardHeaders(req);
 
+  // Forward the threadId to the backend
+  headers['x-finbot-thread-id'] = threadId;
+
   const resp = await fetch(`${BACKEND_BASE}/api/v1/chat`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(bodyData),
+    body: JSON.stringify({ ...bodyData, threadId }),
   });
 
   if (!resp.body) return resp;
 
   let fullResponse = "";
 
-  // Decode userId from the JWT in the URL — runs server-side, no localStorage needed
+  // Decode userId from the JWT
   let userId = "unknown";
   try {
+    // Check URL token param first, then authorization header
     const urlToken = new URL(req.url).searchParams.get("token") || "";
-    if (urlToken) {
-      const payload = urlToken.split(".")[1];
+    const headerToken = headers['authorization']?.replace('Bearer ', '') || "";
+    const token = urlToken || headerToken;
+    if (token) {
+      const payload = token.split(".")[1];
       const decoded = JSON.parse(Buffer.from(payload, "base64").toString());
       userId = decoded.sub || "unknown";
     }
@@ -100,13 +120,17 @@ export async function POST(req: NextRequest) {
       controller.enqueue(chunk);
     },
     async flush() {
-      if (fullResponse) {
+      if (fullResponse && threadId !== "default") {
         const assistantMessage = { role: "assistant", content: fullResponse };
         try {
+          console.log(`[API CHAT] Saving messages to Firestore: thread=${threadId}, userId=${userId}, responseLen=${fullResponse.length}`);
           await addMessages(threadId, prompt, assistantMessage, userId);
+          console.log(`[API CHAT] ✅ Messages saved successfully`);
         } catch (e) {
-          console.error("Failed to save to Firebase:", e);
+          console.error("[API CHAT] Failed to save to Firebase:", e);
         }
+      } else if (threadId === "default") {
+        console.warn("[API CHAT] ⚠️ Skipping Firestore save — threadId is 'default'");
       }
     }
   });
@@ -120,16 +144,7 @@ export async function POST(req: NextRequest) {
   });
 }
 
-// GET /api/chat/[threadId] — handled entirely by UI loading from Firebase, but leaving proxy for backward compatibility if needed
+// GET /api/chat — fallback
 export async function GET(req: NextRequest) {
-  const threadId = req.nextUrl.pathname.split('/').pop();
-  try {
-    const resp = await fetch(`${BACKEND_BASE}/api/v1/chat/${threadId}`, {
-      headers: buildForwardHeaders(req),
-    });
-    const data = await resp.json();
-    return NextResponse.json(data);
-  } catch(e) {
-    return NextResponse.json([]);
-  }
+  return NextResponse.json([]);
 }

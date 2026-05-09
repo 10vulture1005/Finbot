@@ -96,11 +96,18 @@ export async function addMessages(threadId: string, prompt: any, assistantMessag
   const resolvedUserId = userId || getUserId() || "unknown";
 
   const threadRef = doc(db, "threads", threadId);
-  
-  // Ensure the thread exists or update its timestamp
+  const now = new Date().toISOString();
+
+  // Extract user message content for thread title
+  const userContent = prompt.content || (typeof prompt === "string" ? prompt : "");
+  const title = userContent.substring(0, 50) + (userContent.length > 50 ? "..." : "") || "New Chat";
+
+  // Ensure the thread exists and update its timestamp + title
   await setDoc(threadRef, {
     userId: resolvedUserId,
-    updatedAt: new Date().toISOString()
+    title,
+    updatedAt: now,
+    createdAt: now, // Only set on first write due to merge
   }, { merge: true });
 
   const messagesRef = collection(db, "threads", threadId, "messages");
@@ -108,18 +115,20 @@ export async function addMessages(threadId: string, prompt: any, assistantMessag
   const promptId = crypto.randomUUID();
   const assistantMsgId = crypto.randomUUID();
 
-  console.log(`[addMessages] Saving to thread=${threadId}, userId=${resolvedUserId}`);
+  console.log(`[addMessages] Saving to thread=${threadId}, userId=${resolvedUserId}, title="${title}"`);
 
   const batch = writeBatch(db);
 
   batch.set(doc(messagesRef, promptId), {
-    ...prompt,
-    createdAt: new Date().toISOString()
+    role: "user",
+    content: userContent,
+    createdAt: now,
   });
 
   batch.set(doc(messagesRef, assistantMsgId), {
-    ...assistantMessage,
-    createdAt: new Date().toISOString()
+    role: "assistant",
+    content: assistantMessage.content || "",
+    createdAt: now,
   });
 
   await batch.commit();
@@ -135,19 +144,22 @@ export async function getUIThreadMessages(threadId: string) {
     const snapshot = await getDocs(q);
     console.log(`[getUIThreadMessages] Found ${snapshot.docs.length} messages`);
 
-    return snapshot.docs.map(doc => {
-      const data = doc.data();
+    return snapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      const content = data.content || "";
       let messageField: any;
       
       if (data.role === "assistant") {
-        messageField = [{ type: "text", text: data.content || "" }];
+        // SDK expects assistant messages as array of text objects
+        messageField = [{ type: "text", text: content }];
       } else {
-        messageField = data.content || "";
+        // SDK expects user messages as plain strings
+        messageField = content;
       }
 
       return {
-        id: doc.id,
-        role: data.role,
+        id: docSnap.id,
+        role: data.role || "user",
         type: data.role === "user" ? "prompt" : "text",
         message: messageField
       };

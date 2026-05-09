@@ -17,6 +17,7 @@ export default function ChatPage() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
   // Read token synchronously so apiUrl is stable from the very first render.
   const [authToken] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -46,12 +47,22 @@ function ChatInner({ authToken }: { authToken: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // ─── Thread List Manager ─────────────────────────────────────────────
   const fetchThreadListFn = useCallback(() => getThreadList(), []);
-  const createThreadFn = useCallback((m: any) => createThread(m), []);
+  const createThreadFn = useCallback(async (m: any) => {
+    const result = await createThread(m);
+    // After creating, update URL to include the new threadId
+    router.replace(`${pathname}?threadId=${result.threadId}`);
+    return result;
+  }, [pathname, router]);
+
   const onSelectThreadFn = useCallback((id: string) => {
     router.replace(`${pathname}?threadId=${id}`);
   }, [pathname, router]);
-  const onSwitchToNewFn = useCallback(() => router.replace(pathname), [pathname, router]);
+
+  const onSwitchToNewFn = useCallback(() => {
+    router.replace(pathname);
+  }, [pathname, router]);
 
   const threadListManager = useThreadListManager({
     fetchThreadList: fetchThreadListFn,
@@ -62,20 +73,34 @@ function ChatInner({ authToken }: { authToken: string }) {
     onSwitchToNew: onSwitchToNewFn,
   });
 
-  const loadThreadFn = useCallback((id: string) => getUIThreadMessages(id), []);
+  // ─── Thread Manager ──────────────────────────────────────────────────
+  const loadThreadFn = useCallback(async (id: string) => {
+    console.log(`[ChatPage] loadThread called for: ${id}`);
+    const messages = await getUIThreadMessages(id);
+    console.log(`[ChatPage] Loaded ${messages.length} messages for thread ${id}`);
+    return messages;
+  }, []);
+
   const onUpdateMessageFn = useCallback(({ message }: { message: any }) => {
-    updateMessage(threadListManager.selectedThreadId!, message);
+    const selectedId = threadListManager.selectedThreadId;
+    if (selectedId) {
+      updateMessage(selectedId, message);
+    }
   }, [threadListManager.selectedThreadId]);
+
+  // Build the apiUrl with both the token AND the current threadId
+  // so the API route can save messages to the correct Firestore thread
+  const currentThreadId = threadListManager.selectedThreadId;
+  const apiUrl = `/api/chat?token=${authToken}${currentThreadId ? `&threadId=${currentThreadId}` : ''}`;
 
   const threadManager = useThreadManager({
     threadListManager,
     loadThread: loadThreadFn,
     onUpdateMessage: onUpdateMessageFn,
-    apiUrl: `/api/chat${authToken ? `?token=${authToken}` : ""}`,
+    apiUrl,
   });
 
-  // Keep a stable ref to threadListManager so the URL-sync effect
-  // doesn't re-fire on every SDK state update.
+  // ─── Thread List Refs ────────────────────────────────────────────────
   const threadListRef = useRef(threadListManager);
   useEffect(() => {
     threadListRef.current = threadListManager;
@@ -94,16 +119,31 @@ function ChatInner({ authToken }: { authToken: string }) {
   useEffect(() => {
     const mgr = threadListRef.current;
     const urlThreadId = searchParams.get("threadId");
-    console.log("[page.tsx] URL changed. urlThreadId:", urlThreadId, "mgr.selectedThreadId:", mgr.selectedThreadId);
     
     if (urlThreadId && urlThreadId !== mgr.selectedThreadId) {
-      console.log("[page.tsx] -> Calling mgr.selectThread(urlThreadId)");
       mgr.selectThread?.(urlThreadId);
     } else if (!urlThreadId && mgr.selectedThreadId) {
-      console.log("[page.tsx] -> Calling mgr.switchToNewThread()");
       mgr.switchToNewThread?.();
     }
   }, [searchParams]);
+
+  // ─── Auto-select the most recent thread on first load ────────────────
+  const hasAutoSelectedRef = useRef(false);
+  useEffect(() => {
+    const urlThreadId = searchParams.get("threadId");
+    
+    // Only auto-select if no thread is specified in the URL and we haven't already
+    if (!urlThreadId && !hasAutoSelectedRef.current && threadListManager.threads) {
+      const threads = threadListManager.threads as any[];
+      if (threads.length > 0) {
+        hasAutoSelectedRef.current = true;
+        const mostRecent = threads[0]; // Already sorted newest first
+        if (mostRecent?.threadId) {
+          router.replace(`${pathname}?threadId=${mostRecent.threadId}`);
+        }
+      }
+    }
+  }, [threadListManager.threads, searchParams, pathname, router]);
 
   const C1ChatAny = C1Chat as any;
 
