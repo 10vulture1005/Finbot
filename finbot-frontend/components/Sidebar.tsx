@@ -21,6 +21,7 @@ import {
   Bell,
   Sparkles,
   Receipt,
+  Target,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -40,6 +41,7 @@ export default function Sidebar() {
     { label: "Price Alerts", href: "/dashboard/alerts", icon: Bell },
     { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquare },
     { label: "Groq Chat", href: "/dashboard/chat-ai", icon: Sparkles },
+    { label: "Goal Planner", href: "/dashboard/goal-swarm", icon: Target },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
